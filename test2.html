@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Karma Delta Scraper 2.2</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #fff; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+    th { background-color: #222; }
+    tr:nth-child(even) { background-color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <h1>KarmaDelta Leaderboard</h1>
+  <div id="status">Loading...</div>
+  <table id="results" style="display:none">
+    <thead>
+      <tr><th>User</th><th>User ID</th><th>Karma Delta</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+  const PROXY = 'https://api.allorigins.win/raw?url=';
+
+  async function fetchCSV(url) {
+    const res = await axios.get(PROXY + encodeURIComponent(url));
+    return res.data;
+  }
+
+  function parseCSV(data) {
+    const lines = data.trim().split('\n').slice(1);
+    return lines.map(line => {
+      const [user, id] = line.split(',').map(s => s.trim());
+      return user && id ? { user: user.replace(/^@/, ''), id } : null;
+    }).filter(Boolean);
+  }
+
+  async function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function fetchKarma(userId) {
+    const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`);
+    const res = await axios.get(url);
+    return res.data?.stats?.karmaDelta ?? 0;
+  }
+
+  async function loadData() {
+    document.getElementById('status').innerText = 'Fetching CSV...';
+    const rawCSV = await fetchCSV(CSV_URL);
+    const users = parseCSV(rawCSV);
+
+    const tbody = document.querySelector('#results tbody');
+    let completed = 0, success = 0, failed = 0;
+    let i = 0;
+
+    while (i < users.length) {
+      const { user, id } = users[i];
+      let delta = null;
+
+      try {
+        delta = await fetchKarma(id);
+      } catch (err) {
+        console.warn(`Fetch failed for ${id}, retrying in 1s...`);
+        await delay(1000);
+        continue; // try same index again
+      }
+
+      completed++;
+      if (delta !== null) {
+        success++;
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user}</td><td>${id}</td><td>${delta}</td>`;
+        tbody.appendChild(row);
+      } else {
+        failed++;
+      }
+
+      document.getElementById('status').innerText =
+        `Fetched ${completed} of ${users.length} (✅ ${success}, ❌ ${failed})`;
+
+      await delay(350); // Regular pacing
+      i++; // only increment on successful attempt (success or fail)
+    }
+
+    document.getElementById('results').style.display = 'table';
+    document.getElementById('status').innerText = `Done. ✅ ${success}, ❌ ${failed}`;
+  }
+
+  loadData();
+</script>
+
+
+</body>
+</html>
