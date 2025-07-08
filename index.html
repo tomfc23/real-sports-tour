@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Real Sports Tour</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
@@ -61,11 +62,42 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
     
+    /* Tabs styling */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+      gap: 20px;
+    }
+
+    .tab-button {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      color: #cbd5e1;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: background 0.3s, color 0.3s;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .tab-button.active {
+      background: linear-gradient(45deg, #4f46e5, #06b6d4);
+      color: white;
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.7);
+    }
+
     .leaderboard-grid {
-      display: grid;
+      display: none; /* Hide all by default, show one via JS */
       grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
       gap: 30px;
       margin-bottom: 40px;
+    }
+
+    .leaderboard-grid.active {
+      display: grid;
     }
     
     .leaderboard-section {
@@ -245,6 +277,14 @@
     .amateur-section .section-title::before {
       background: linear-gradient(45deg, #f59e0b, #fbbf24);
     }
+    .division-section {
+  display: none;
+}
+
+.division-section.active {
+  display: block;
+}
+
   </style>
 </head>
 <body>
@@ -253,13 +293,19 @@
       <h1>Real Sports Tour</h1>
       <p class="subtitle">Made by @tomfc and @barry</p>
     </header>
-    
+
+    <div class="tabs">
+      <button id="tab-pro" class="tab-button active" aria-selected="true">Pro Division</button>
+      <button id="tab-amat" class="tab-button" aria-selected="false">Amateur Division</button>
+    </div>
+
     <div id="status" class="status-loading">Loading tournament data...</div>
 
-    <div class="leaderboard-grid">
+    <!-- Pro Bracket -->
+    <div id="pro-division" class="division-section active">
       <div class="leaderboard-section pro-section">
         <h2 class="section-title">🏆 Pro Division</h2>
-        
+
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Mid-Tournament</span>
@@ -282,10 +328,13 @@
           </table>
         </div>
       </div>
+    </div>
 
+    <!-- Amateur Bracket -->
+    <div id="amat-division" class="division-section">
       <div class="leaderboard-section amateur-section">
         <h2 class="section-title">🥇 Amateur Division</h2>
-        
+
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Mid-Tournament</span>
@@ -318,10 +367,9 @@
     const RETRY_DELAY = 1000;
     const BATCH_DELAY = 500;
 
-    // Tournament time windows (UTC)
     const tournamentStart = new Date("2025-07-07T07:00:00Z");
-    const day2Cutoff = new Date("2025-07-09T07:00:00Z"); // 2 days after start
-    const tournamentEnd = new Date("2025-07-11T07:00:00Z"); // 4 days after start
+    const day2Cutoff = new Date("2025-07-09T07:00:00Z");
+    const tournamentEnd = new Date("2025-07-11T07:00:00Z");
 
     async function fetchCSV(url) {
       const res = await axios.get(PROXY + encodeURIComponent(url));
@@ -331,17 +379,15 @@
     function parseCSV(data) {
       const lines = data.trim().split('\n').slice(1);
       return lines.map(line => {
-        const parts = line.split(',').map(s => s.trim());
-        if(parts.length < 4) return null;
-        const [user, id, seed, status] = parts;
-        if(!user || !id || !seed) return null;
+        const [user, id, seed, status] = line.split(',').map(s => s.trim());
+        if (!user || !id || !seed) return null;
         return {
           user: user.replace(/^@/, ''),
           id,
           seed: seed.toLowerCase(),
           status: status.toLowerCase()
         };
-      }).filter(Boolean).filter(u => u.status === 'active'); // Only active users
+      }).filter(Boolean).filter(u => u.status === 'active');
     }
 
     async function delay(ms) {
@@ -353,50 +399,80 @@
       try {
         const res = await axios.get(url);
         return res.data.items || [];
-      } catch (err) {
-        console.warn(`First fetch failed for ${id}, retrying in 1s...`);
+      } catch {
         await delay(RETRY_DELAY);
         try {
           const retryRes = await axios.get(url);
           return retryRes.data.items || [];
-        } catch (err2) {
-          console.error(`Retry also failed for ${id}`);
+        } catch {
           return null;
         }
       }
     }
 
     function sumKarmaInRange(items, startDate, endDate) {
-      if(!items || !Array.isArray(items)) return 0;
-      return items.reduce((sum, item) => {
+      return items?.reduce((sum, item) => {
         const createdAt = new Date(item.createdAt);
         if (createdAt >= startDate && createdAt < endDate) {
           return sum + (item.amount || 0);
         }
         return sum;
-      }, 0);
+      }, 0) || 0;
     }
 
-    // Sort descending and insert cutoff line at 50% index
-    function renderLeaderboard(users, tbody) {
-      users.sort((a,b) => b.karma - a.karma);
-      tbody.innerHTML = '';
-      const cutoffIndex = Math.floor(users.length / 2);
+   function renderLeaderboard(users, tbody) {
+  users.sort((a, b) => b.karma - a.karma);
+  tbody.innerHTML = '';
 
-      users.forEach(({ user, karma }, idx) => {
-        if(idx === cutoffIndex) {
-          // Insert cutoff line row
-          const cutoffRow = document.createElement('tr');
-          cutoffRow.className = 'cutoff-line';
-          const td = document.createElement('td');
-          td.colSpan = 1;
-          td.textContent = '-- Elimination Cutoff --';
-          cutoffRow.appendChild(td);
-          tbody.appendChild(cutoffRow);
-        }
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>@${user} - ${karma}</td>`;
-        tbody.appendChild(row);
+  // Calculate the median score
+  const scores = users.map(u => u.karma).sort((a, b) => a - b);
+  const mid = Math.floor(scores.length / 2);
+  const median = scores.length % 2 === 0
+    ? (scores[mid - 1] + scores[mid]) / 2
+    : scores[mid];
+
+  // Split into survivors and eliminated
+  const survivors = users.filter(u => u.karma >= median);
+  const eliminated = users.filter(u => u.karma < median);
+
+  // Add survivors first
+  survivors.forEach(({ user, karma }) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>@${user} - ${karma}</td>`;
+    tbody.appendChild(row);
+  });
+
+  // Add cutoff line
+  if (eliminated.length > 0) {
+    const cutoffRow = document.createElement('tr');
+    cutoffRow.className = 'cutoff-line';
+    cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff (Median: ${median}) --</td>`;
+    tbody.appendChild(cutoffRow);
+  }
+
+  // Then add eliminated players
+  eliminated.forEach(({ user, karma }) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>@${user} - ${karma}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
+
+    function updateTableVisibilityByDate() {
+      const now = new Date();
+      const beforeCutoff = now < day2Cutoff;
+
+      const tables = {
+        day2: ['pro-day2-table', 'amat-day2-table'],
+        day4: ['pro-day4-table', 'amat-day4-table']
+      };
+
+      tables.day2.forEach(id => {
+        document.getElementById(id).style.display = beforeCutoff ? '' : 'none';
+      });
+      tables.day4.forEach(id => {
+        document.getElementById(id).style.display = beforeCutoff ? 'none' : '';
       });
     }
 
@@ -405,64 +481,79 @@
 
       const rawCSV = await fetchCSV(CSV_URL);
       const users = parseCSV(rawCSV);
-
       const proUsers = users.filter(u => u.seed === 'pro');
-      const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
+      const amatUsers = users.filter(u => u.seed === 'amatuer');
 
-      // Arrays to hold user karma for day2 and day4
-      const proResultsDay2 = [];
-      const proResultsDay4 = [];
-      const amatResultsDay2 = [];
-      const amatResultsDay4 = [];
+      const proResultsDay2 = [], proResultsDay4 = [];
+      const amatResultsDay2 = [], amatResultsDay4 = [];
 
-      async function processBatch(userBatch, day2Arr, day4Arr, seedType) {
-        const results = await Promise.all(
-          userBatch.map(async ({ user, id }) => {
-            const items = await fetchKarmaFeedWithRetry(user, id);
-            if(!items) return null;
-            const karmaDay2 = sumKarmaInRange(items, tournamentStart, day2Cutoff);
-            const karmaDay4 = sumKarmaInRange(items, tournamentStart, tournamentEnd);
-            return { user, karmaDay2, karmaDay4 };
-          })
-        );
-
-        results.forEach(res => {
-          if(res) {
-            day2Arr.push({ user: res.user, karma: res.karmaDay2 });
-            day4Arr.push({ user: res.user, karma: res.karmaDay4 });
+      async function processBatch(batch, day2Arr, day4Arr) {
+        const results = await Promise.all(batch.map(async ({ user, id }) => {
+          const items = await fetchKarmaFeedWithRetry(user, id);
+          if (!items) return null;
+          return {
+            user,
+            karmaDay2: sumKarmaInRange(items, tournamentStart, day2Cutoff),
+            karmaDay4: sumKarmaInRange(items, tournamentStart, tournamentEnd)
+          };
+        }));
+        results.forEach(r => {
+          if (r) {
+            day2Arr.push({ user: r.user, karma: r.karmaDay2 });
+            day4Arr.push({ user: r.user, karma: r.karmaDay4 });
           }
         });
-
-        document.getElementById('status').innerHTML = `<span class="loading-spinner"></span>Processed ${day4Arr.length} ${seedType} users...`;
-
         await delay(BATCH_DELAY);
       }
 
-      // Process Pro users
-      for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
-        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4, 'Pro');
+      for (let i = 0; i < proUsers.length; i += BATCH_SIZE) {
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4);
       }
-      // Process Amateur users
-      for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
-        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4, 'Amateur');
+      for (let i = 0; i < amatUsers.length; i += BATCH_SIZE) {
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4);
       }
 
-      // Render all tables
       renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'));
       renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'));
       renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'));
       renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'));
 
-      // Show tables
       ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
         document.getElementById(id).classList.remove('hidden');
       });
+
+      updateTableVisibilityByDate();
 
       document.getElementById('status').innerHTML = '✅ Tournament data loaded successfully!';
       document.getElementById('status').classList.remove('status-loading');
     }
 
-    loadData();
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabs = document.querySelectorAll('.tab-button');
+      const proDiv = document.getElementById('pro-division');
+      const amatDiv = document.getElementById('amat-division');
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+          });
+          tab.classList.add('active');
+          tab.setAttribute('aria-selected', 'true');
+
+          if (tab.id === 'tab-pro') {
+            proDiv.classList.add('active');
+            amatDiv.classList.remove('active');
+          } else {
+            amatDiv.classList.add('active');
+            proDiv.classList.remove('active');
+          }
+        });
+      });
+
+      loadData();
+    });
   </script>
 </body>
 </html>
