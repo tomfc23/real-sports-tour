@@ -6,7 +6,7 @@
   <title>Real Sports Tour</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
-    * {
+      * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
@@ -277,14 +277,6 @@
     .amateur-section .section-title::before {
       background: linear-gradient(45deg, #f59e0b, #fbbf24);
     }
-    .division-section {
-  display: none;
-}
-
-.division-section.active {
-  display: block;
-}
-
   </style>
 </head>
 <body>
@@ -305,7 +297,6 @@
     <div id="pro-division" class="division-section active">
       <div class="leaderboard-section pro-section">
         <h2 class="section-title">🏆 Pro Division</h2>
-
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Mid-Tournament</span>
@@ -316,7 +307,6 @@
             <tbody></tbody>
           </table>
         </div>
-
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Final Results</span>
@@ -334,7 +324,6 @@
     <div id="amat-division" class="division-section">
       <div class="leaderboard-section amateur-section">
         <h2 class="section-title">🥇 Amateur Division</h2>
-
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Mid-Tournament</span>
@@ -345,7 +334,6 @@
             <tbody></tbody>
           </table>
         </div>
-
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Final Results</span>
@@ -420,54 +408,48 @@
       }, 0) || 0;
     }
 
-   function renderLeaderboard(users, tbody) {
-  users.sort((a, b) => b.karma - a.karma);
-  tbody.innerHTML = '';
+    function calculateMedian(users) {
+      const scores = users.map(u => u.karma).sort((a, b) => a - b);
+      const mid = Math.floor(scores.length / 2);
+      return scores.length % 2 === 0
+        ? (scores[mid - 1] + scores[mid]) / 2
+        : scores[mid];
+    }
 
-  // Calculate the median score
-  const scores = users.map(u => u.karma).sort((a, b) => a - b);
-  const mid = Math.floor(scores.length / 2);
-  const median = scores.length % 2 === 0
-    ? (scores[mid - 1] + scores[mid]) / 2
-    : scores[mid];
+    function renderLeaderboard(users, tbody, median) {
+      users.sort((a, b) => b.karma - a.karma);
+      tbody.innerHTML = '';
 
-  // Split into survivors and eliminated
-  const survivors = users.filter(u => u.karma >= median);
-  const eliminated = users.filter(u => u.karma < median);
+      const survivors = users.filter(u => u.karma >= median);
+      const eliminated = users.filter(u => u.karma < median);
 
-  // Add survivors first
-  survivors.forEach(({ user, karma }) => {
-    const row = document.createElement('tr');
-    row.innerHTML = `<td>@${user} - ${karma}</td>`;
-    tbody.appendChild(row);
-  });
+      survivors.forEach(({ user, karma }) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user} - ${karma}</td>`;
+        tbody.appendChild(row);
+      });
 
-  // Add cutoff line
-  if (eliminated.length > 0) {
-    const cutoffRow = document.createElement('tr');
-    cutoffRow.className = 'cutoff-line';
-    cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff (Median: ${median}) --</td>`;
-    tbody.appendChild(cutoffRow);
-  }
+      if (eliminated.length > 0) {
+        const cutoffRow = document.createElement('tr');
+        cutoffRow.className = 'cutoff-line';
+        cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff (Median: ${median}) --</td>`;
+        tbody.appendChild(cutoffRow);
+      }
 
-  // Then add eliminated players
-  eliminated.forEach(({ user, karma }) => {
-    const row = document.createElement('tr');
-    row.innerHTML = `<td>@${user} - ${karma}</td>`;
-    tbody.appendChild(row);
-  });
-}
-
+      eliminated.forEach(({ user, karma }) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user} - ${karma}</td>`;
+        tbody.appendChild(row);
+      });
+    }
 
     function updateTableVisibilityByDate() {
       const now = new Date();
       const beforeCutoff = now < day2Cutoff;
-
       const tables = {
         day2: ['pro-day2-table', 'amat-day2-table'],
         day4: ['pro-day4-table', 'amat-day4-table']
       };
-
       tables.day2.forEach(id => {
         document.getElementById(id).style.display = beforeCutoff ? '' : 'none';
       });
@@ -513,10 +495,15 @@
         await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4);
       }
 
-      renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'));
-      renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'));
-      renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'));
-      renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'));
+      const proMedianDay2 = calculateMedian(proResultsDay2);
+      const proMedianDay4 = calculateMedian(proResultsDay4);
+      const amatMedianDay2 = calculateMedian(amatResultsDay2);
+      const amatMedianDay4 = calculateMedian(amatResultsDay4);
+
+      renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'), proMedianDay2);
+      renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'), proMedianDay4);
+      renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'), amatMedianDay2);
+      renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'), amatMedianDay4);
 
       ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
         document.getElementById(id).classList.remove('hidden');
