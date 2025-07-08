@@ -22,7 +22,7 @@
     <tbody></tbody>
   </table>
 
- <script>
+<script>
   const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
   const PROXY = 'https://api.allorigins.win/raw?url=';
 
@@ -43,20 +43,10 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async function fetchKarma(userId, retries = 1) {
+  async function fetchKarma(userId) {
     const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`);
-    try {
-      const res = await axios.get(url);
-      return res.data?.stats?.karmaDelta ?? 0;
-    } catch (err) {
-      if (retries > 0) {
-        console.warn(`Retrying ${userId} after 1s...`);
-        await delay(1000);
-        return fetchKarma(userId, retries - 1);
-      }
-      console.error(`Failed after retry: ${userId}`);
-      return null;
-    }
+    const res = await axios.get(url);
+    return res.data?.stats?.karmaDelta ?? 0;
   }
 
   async function loadData() {
@@ -66,13 +56,21 @@
 
     const tbody = document.querySelector('#results tbody');
     let completed = 0, success = 0, failed = 0;
+    let i = 0;
 
-    for (let i = 0; i < users.length; i++) {
+    while (i < users.length) {
       const { user, id } = users[i];
+      let delta = null;
 
-      const delta = await fetchKarma(id);
+      try {
+        delta = await fetchKarma(id);
+      } catch (err) {
+        console.warn(`Fetch failed for ${id}, retrying in 1s...`);
+        await delay(1000);
+        continue; // try same index again
+      }
+
       completed++;
-
       if (delta !== null) {
         success++;
         const row = document.createElement('tr');
@@ -85,7 +83,8 @@
       document.getElementById('status').innerText =
         `Fetched ${completed} of ${users.length} (✅ ${success}, ❌ ${failed})`;
 
-      await delay(350); // Wait between every request regardless of success
+      await delay(350); // Regular pacing
+      i++; // only increment on successful attempt (success or fail)
     }
 
     document.getElementById('results').style.display = 'table';
@@ -94,6 +93,7 @@
 
   loadData();
 </script>
+
 
 </body>
 </html>
