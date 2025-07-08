@@ -1,83 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Solo Tournament Leaderboard - Test Mode</title>
-<style>
-  body {
-    background: #121212;
-    color: #eee;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0; padding: 1rem;
-  }
-  h1 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-  }
-  #leaderboards {
-    display: flex;
-    gap: 2rem;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .board {
-    background: #1e1e1e;
-    border-radius: 8px;
-    box-shadow: 0 0 10px #222;
-    width: 360px;
-    max-width: 100%;
-  }
-  .board h2 {
-    text-align: center;
-    padding: 1rem 0;
-    border-bottom: 1px solid #333;
-    margin: 0;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-  }
-  th, td {
-    padding: 0.4rem 0.8rem;
-    text-align: left;
-  }
-  th {
-    border-bottom: 1px solid #333;
-  }
-  tbody tr:nth-child(even) {
-    background: #222;
-  }
-  tbody tr.cut {
-    color: #777;
-    text-decoration: line-through;
-  }
-  tbody tr.cut:hover {
-    color: #aaa;
-  }
-  .cut-line {
-    border-top: 2px solid #f44336;
-  }
-  .loading {
-    text-align: center;
-    padding: 1rem;
-    font-style: italic;
-    color: #aaa;
-  }
-  .status-active {
-    color: #4caf50;
-    font-weight: 600;
-  }
-  .status-cut {
-    color: #f44336;
-    font-weight: 600;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solo Tournament Leaderboard - Test Mode</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+  <style>
+    body {
+      background: #121212;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0; padding: 1rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    #leaderboards {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .board {
+      background: #1e1e1e;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #222;
+      width: 360px;
+      max-width: 100%;
+    }
+    .board h2 {
+      text-align: center;
+      padding: 1rem 0;
+      border-bottom: 1px solid #333;
+      margin: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.4rem 0.8rem;
+      text-align: left;
+    }
+    th {
+      border-bottom: 1px solid #333;
+    }
+    tbody tr:nth-child(even) {
+      background: #222;
+    }
+    .loading {
+      text-align: center;
+      padding: 1rem;
+      font-style: italic;
+      color: #aaa;
+    }
+    .status-active {
+      color: #4caf50;
+      font-weight: 600;
+    }
+  </style>
 </head>
 <body>
 
-<h1>Solo Tournament Leaderboard - Test Mode (rolling cors) no delay</h1>
+<h1>Solo Tournament Leaderboard - Test Mode (axios+proxy)</h1>
 <div id="leaderboards">
   <div class="board" id="pro-board">
     <h2>Pro Bracket</h2>
@@ -103,99 +90,86 @@
 
 <script>
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
-const API_BASE = 'https://real.vg/api/user/';
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+const karmaCache = new Map();
 
 function parseCSV(csvText) {
   const lines = csvText.trim().split('\n');
-  // Skip first two lines (start date and cutoff date)
-  lines.shift();
-  lines.shift();
+  lines.shift(); // skip start date
+  lines.shift(); // skip cutoff date
 
   const headers = lines.shift().split(',').map(h => h.trim());
-  const data = lines.map(line => {
+  return lines.map(line => {
     const values = line.split(',').map(v => v.trim());
     const obj = {};
-    headers.forEach((h,i) => obj[h.toLowerCase()] = values[i]);
+    headers.forEach((h, i) => obj[h.toLowerCase()] = values[i]);
     return obj;
   });
-
-  return data;
 }
 
 function fmtNum(num) {
   return num.toLocaleString();
 }
 
-const CORS_PROXIES = [
-  'https://allorigins.win/raw?url=',
-  'https://cors-anywhere.herokuapp.com/',
-  'https://api.allorigins.win/raw?url=',
-  // add more free proxies here if you want
-];
-
-async function fetchWithProxies(url) {
-  for (const proxy of CORS_PROXIES) {
-    try {
-      const fullUrl = proxy + encodeURIComponent(url);
-      const resp = await fetch(fullUrl);
-      if (!resp.ok) throw new Error(`Proxy ${proxy} failed with status ${resp.status}`);
-      const json = await resp.json();
-      return json;
-    } catch (err) {
-      console.warn(`Proxy ${proxy} failed:`, err.message);
-      // try next proxy
-    }
-  }
-  throw new Error('All proxies failed');
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchKarmaDelta(userId) {
-  const url = `${API_BASE}${userId}`;
+async function fetchWithRetry(url, retries = 3, delayMs = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await axios.get(url);
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      await delay(delayMs);
+    }
+  }
+}
+
+async function fetchKarma(userId) {
+  if (karmaCache.has(userId)) return karmaCache.get(userId);
+
+  const apiUrl = `https://api.real.vg/user/${userId}/karmafeed`;
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
   try {
-    const json = await fetchWithProxies(url);
-    return Number(json.karmaDelta) || 0;
-  } catch(e) {
-    console.error('fetchKarmaDelta all proxies failed:', e);
+    const response = await fetchWithRetry(proxyUrl);
+    const data = JSON.parse(response.data.contents);
+    const delta = data?.stats?.karmaDelta;
+    const val = typeof delta === 'number' ? delta : Number(delta) || 0;
+    karmaCache.set(userId, val);
+    return val;
+  } catch (e) {
+    console.error(`Error fetching karma for ${userId}:`, e);
     return 0;
   }
 }
 
 async function runLeaderboard() {
   const res = await fetch(CSV_URL);
-  if (!res.ok) {
-    alert('Failed to load tournament CSV');
-    return;
-  }
+  if (!res.ok) return alert('Failed to load tournament CSV');
+
   const csvText = await res.text();
   const players = parseCSV(csvText);
 
   const proPlayers = players.filter(p => p.seed.toLowerCase() === 'pro' && p.status.toLowerCase() === 'active');
   const amateurPlayers = players.filter(p => p.seed.toLowerCase() === 'amatuer' && p.status.toLowerCase() === 'active');
 
-async function fetchAllKarma(players) {
-  const results = [];
-  for (let i = 0; i < players.length; i++) {
-    const p = players[i];
-    const karmaDelta = await fetchKarmaDelta(p['user id']);
-    results.push({ ...p, karmaDelta });
+  async function fetchAllKarma(players) {
+    const results = [];
+    for (const p of players) {
+      const karmaDelta = await fetchKarma(p['user id']);
+      results.push({ ...p, karmaDelta });
+    }
+    return results;
   }
-  return results;
-}
-
 
   const [proWithKarma, amateurWithKarma] = await Promise.all([
     fetchAllKarma(proPlayers),
-    fetchAllKarma(amateurPlayers),
+    fetchAllKarma(amateurPlayers)
   ]);
 
-  proWithKarma.sort((a,b) => b.karmaDelta - a.karmaDelta);
-  amateurWithKarma.sort((a,b) => b.karmaDelta - a.karmaDelta);
+  proWithKarma.sort((a, b) => b.karmaDelta - a.karmaDelta);
+  amateurWithKarma.sort((a, b) => b.karmaDelta - a.karmaDelta);
 
-  // No cutoff line or cut logic here — show all as active
   function renderBoard(containerId, playersArr) {
     const board = document.getElementById(containerId);
     const loading = board.querySelector('.loading');
