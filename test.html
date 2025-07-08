@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>KarmaDelta by Pro & Amateur</title>
+  <title>KarmaDelta by Pro & Amateur 2.0</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
     body {
@@ -27,6 +27,13 @@
     }
     tr:nth-child(even) {
       background-color: #1a1a1a;
+    }
+    tr.cutoff-line td {
+      border-top: 2px solid #f00;
+      font-style: italic;
+      text-align: center;
+      color: #f55;
+      background: #220000;
     }
     h2 {
       margin-bottom: 8px;
@@ -104,6 +111,32 @@
       }
     }
 
+    // Sort descending and insert cutoff line
+    function renderLeaderboard(users, tbody) {
+      // Sort descending by karmaDelta
+      users.sort((a,b) => b.karmaDelta - a.karmaDelta);
+
+      tbody.innerHTML = '';
+
+      const cutoffIndex = Math.floor(users.length / 2);
+
+      users.forEach(({ user, karmaDelta }, idx) => {
+        if(idx === cutoffIndex) {
+          // Insert cutoff line row
+          const cutoffRow = document.createElement('tr');
+          cutoffRow.className = 'cutoff-line';
+          const td = document.createElement('td');
+          td.colSpan = 1;
+          td.textContent = '-- Elimination Cutoff --';
+          cutoffRow.appendChild(td);
+          tbody.appendChild(cutoffRow);
+        }
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user} - ${karmaDelta}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
     async function loadData() {
       document.getElementById('pro-status').innerText = 'Fetching CSV...';
       document.getElementById('amat-status').innerText = 'Fetching CSV...';
@@ -114,49 +147,40 @@
       const proUsers = users.filter(u => u.seed === 'pro');
       const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
 
-      const proTbody = document.querySelector('#pro-table tbody');
-      const amatTbody = document.querySelector('#amat-table tbody');
+      const proResults = [];
+      const amatResults = [];
 
-      let proSuccess = 0, proFailed = 0;
-      let amatSuccess = 0, amatFailed = 0;
-
-      async function processBatch(userBatch, tbody, seedType) {
+      async function processBatch(userBatch, resultArray, seedType) {
         const results = await Promise.all(
           userBatch.map(({ user, id }) =>
-            fetchKarmaWithRetry(user, id).then(delta => ({ user, delta }))
+            fetchKarmaWithRetry(user, id).then(delta => ({ user, karmaDelta: delta }))
           )
         );
 
-        results.forEach(({ user, delta }) => {
-          if (delta !== null) {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td>@${user} - ${delta}</td>`;
-            tbody.appendChild(row);
-            if(seedType === 'pro') proSuccess++;
-            else amatSuccess++;
-          } else {
-            if(seedType === 'pro') proFailed++;
-            else amatFailed++;
+        results.forEach(({ user, karmaDelta }) => {
+          if (karmaDelta !== null) {
+            resultArray.push({ user, karmaDelta });
           }
         });
 
         if(seedType === 'pro') {
-          document.getElementById('pro-status').innerText = `Fetched ${proSuccess + proFailed} of ${proUsers.length} (✅ ${proSuccess}, ❌ ${proFailed})`;
+          document.getElementById('pro-status').innerText = `Fetched ${resultArray.length} of ${proUsers.length}`;
         } else {
-          document.getElementById('amat-status').innerText = `Fetched ${amatSuccess + amatFailed} of ${amatUsers.length} (✅ ${amatSuccess}, ❌ ${amatFailed})`;
+          document.getElementById('amat-status').innerText = `Fetched ${resultArray.length} of ${amatUsers.length}`;
         }
 
         await delay(BATCH_DELAY);
       }
 
-      // Process Pro Users in batches
       for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
-        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proTbody, 'pro');
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResults, 'pro');
       }
-      // Process Amateur Users in batches
       for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
-        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatTbody, 'amatuer');
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResults, 'amatuer');
       }
+
+      renderLeaderboard(proResults, document.querySelector('#pro-table tbody'));
+      renderLeaderboard(amatResults, document.querySelector('#amat-table tbody'));
 
       document.getElementById('pro-table').style.display = 'table';
       document.getElementById('amat-table').style.display = 'table';
