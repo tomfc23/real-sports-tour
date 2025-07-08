@@ -260,7 +260,16 @@
       <div class="leaderboard-section pro-section">
         <h2 class="section-title">🏆 Pro Division</h2>
         
-        <!-- Day 2 table removed from visibility and rendering -->
+        <div class="tournament-phase">
+          <div class="phase-header">
+            <span>Mid-Tournament</span>
+            <span class="phase-badge">Day 2</span>
+          </div>
+          <table id="pro-day2-table" class="hidden">
+            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
 
         <div class="tournament-phase">
           <div class="phase-header">
@@ -277,7 +286,16 @@
       <div class="leaderboard-section amateur-section">
         <h2 class="section-title">🥇 Amateur Division</h2>
         
-        <!-- Day 2 table removed from visibility and rendering -->
+        <div class="tournament-phase">
+          <div class="phase-header">
+            <span>Mid-Tournament</span>
+            <span class="phase-badge">Day 2</span>
+          </div>
+          <table id="amat-day2-table" class="hidden">
+            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
 
         <div class="tournament-phase">
           <div class="phase-header">
@@ -302,6 +320,7 @@
 
     // Tournament time windows (UTC)
     const tournamentStart = new Date("2025-07-07T07:00:00Z");
+    const day2Cutoff = new Date("2025-07-09T07:00:00Z"); // 2 days after start
     const tournamentEnd = new Date("2025-07-11T07:00:00Z"); // 4 days after start
 
     async function fetchCSV(url) {
@@ -382,17 +401,6 @@
     }
 
     async function loadData() {
-      const now = new Date();
-
-      if (now < tournamentEnd) {
-        // Before cutoff, show message only, hide all tables
-        document.getElementById('status').textContent = 'Tournament ongoing — final results available after cutoff date.';
-        ['pro-day4-table', 'amat-day4-table'].forEach(id => {
-          document.getElementById(id).classList.add('hidden');
-        });
-        return;
-      }
-
       document.getElementById('status').innerHTML = '<span class="loading-spinner"></span>Fetching tournament data...';
 
       const rawCSV = await fetchCSV(CSV_URL);
@@ -401,59 +409,56 @@
       const proUsers = users.filter(u => u.seed === 'pro');
       const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
 
+      // Arrays to hold user karma for day2 and day4
+      const proResultsDay2 = [];
       const proResultsDay4 = [];
+      const amatResultsDay2 = [];
       const amatResultsDay4 = [];
 
-      async function processBatchFinal(userBatch, resultsArr, seedType) {
+      async function processBatch(userBatch, day2Arr, day4Arr, seedType) {
         const results = await Promise.all(
           userBatch.map(async ({ user, id }) => {
             const items = await fetchKarmaFeedWithRetry(user, id);
             if(!items) return null;
+            const karmaDay2 = sumKarmaInRange(items, tournamentStart, day2Cutoff);
             const karmaDay4 = sumKarmaInRange(items, tournamentStart, tournamentEnd);
-            return { user, karma: karmaDay4 };
+            return { user, karmaDay2, karmaDay4 };
           })
         );
 
         results.forEach(res => {
           if(res) {
-            resultsArr.push(res);
+            day2Arr.push({ user: res.user, karma: res.karmaDay2 });
+            day4Arr.push({ user: res.user, karma: res.karmaDay4 });
           }
         });
 
-        document.getElementById('status').innerHTML = `<span class="loading-spinner"></span>Processed ${resultsArr.length} ${seedType} users...`;
+        document.getElementById('status').innerHTML = `<span class="loading-spinner"></span>Processed ${day4Arr.length} ${seedType} users...`;
 
         await delay(BATCH_DELAY);
       }
 
       // Process Pro users
       for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
-        await processBatchFinal(proUsers.slice(i, i + BATCH_SIZE), proResultsDay4, 'Pro');
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4, 'Pro');
       }
       // Process Amateur users
       for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
-        await processBatchFinal(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay4, 'Amateur');
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4, 'Amateur');
       }
 
-      // Filter out bottom 50% (eliminated) before rendering
-      function filterTop50Percent(users) {
-        users.sort((a,b) => b.karma - a.karma);
-        const cutoffIndex = Math.floor(users.length / 2);
-        return users.slice(0, cutoffIndex);
-      }
+      // Render all tables
+      renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'));
+      renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'));
+      renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'));
+      renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'));
 
-      const proFinalFiltered = filterTop50Percent(proResultsDay4);
-      const amatFinalFiltered = filterTop50Percent(amatResultsDay4);
-
-      // Render only final results tables
-      renderLeaderboard(proFinalFiltered, document.querySelector('#pro-day4-table tbody'));
-      renderLeaderboard(amatFinalFiltered, document.querySelector('#amat-day4-table tbody'));
-
-      // Show only final results tables
-      ['pro-day4-table', 'amat-day4-table'].forEach(id => {
+      // Show tables
+      ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
         document.getElementById(id).classList.remove('hidden');
       });
 
-      document.getElementById('status').textContent = '✅ Final results available.';
+      document.getElementById('status').innerHTML = '✅ Tournament data loaded successfully!';
       document.getElementById('status').classList.remove('status-loading');
     }
 
