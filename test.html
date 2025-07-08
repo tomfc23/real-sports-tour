@@ -1,99 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Karma Delta Scraper 2.2</title>
+  <meta charset="UTF-8" />
+  <title>KarmaDelta by Pro & Amateur</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
-    body { font-family: sans-serif; background: #111; color: #fff; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #444; padding: 8px; text-align: left; }
-    th { background-color: #222; }
-    tr:nth-child(even) { background-color: #1a1a1a; }
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+      display: flex;
+      gap: 40px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 300px;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #222;
+    }
+    tr:nth-child(even) {
+      background-color: #1a1a1a;
+    }
+    h2 {
+      margin-bottom: 8px;
+      font-weight: normal;
+      border-bottom: 1px solid #444;
+      padding-bottom: 6px;
+    }
   </style>
 </head>
 <body>
-  <h1>KarmaDelta Leaderboard</h1>
-  <div id="status">Loading...</div>
-  <table id="results" style="display:none">
-    <thead>
-      <tr><th>User</th><th>User ID</th><th>Karma Delta</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div>
+    <h2>Pro Users</h2>
+    <div id="pro-status">Loading...</div>
+    <table id="pro-table" style="display:none;">
+      <thead><tr><th>User - KarmaDelta</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div>
+    <h2>Amateur Users</h2>
+    <div id="amat-status">Loading...</div>
+    <table id="amat-table" style="display:none;">
+      <thead><tr><th>User - KarmaDelta</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-<script>
-  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
-  const PROXY = 'https://api.allorigins.win/raw?url=';
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const PROXY = 'https://api.allorigins.win/raw?url=';
+    const BATCH_SIZE = 5;
+    const RETRY_DELAY = 1000;
+    const BATCH_DELAY = 500;
 
-  async function fetchCSV(url) {
-    const res = await axios.get(PROXY + encodeURIComponent(url));
-    return res.data;
-  }
-
-  function parseCSV(data) {
-    const lines = data.trim().split('\n').slice(1);
-    return lines.map(line => {
-      const [user, id] = line.split(',').map(s => s.trim());
-      return user && id ? { user: user.replace(/^@/, ''), id } : null;
-    }).filter(Boolean);
-  }
-
-  async function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  async function fetchKarma(userId) {
-    const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`);
-    const res = await axios.get(url);
-    return res.data?.stats?.karmaDelta ?? 0;
-  }
-
-  async function loadData() {
-    document.getElementById('status').innerText = 'Fetching CSV...';
-    const rawCSV = await fetchCSV(CSV_URL);
-    const users = parseCSV(rawCSV);
-
-    const tbody = document.querySelector('#results tbody');
-    let completed = 0, success = 0, failed = 0;
-    let i = 0;
-
-    while (i < users.length) {
-      const { user, id } = users[i];
-      let delta = null;
-
-      try {
-        delta = await fetchKarma(id);
-      } catch (err) {
-        console.warn(`Fetch failed for ${id}, retrying in 1s...`);
-        await delay(1000);
-        continue; // try same index again
-      }
-
-      completed++;
-      if (delta !== null) {
-        success++;
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>@${user}</td><td>${id}</td><td>${delta}</td>`;
-        tbody.appendChild(row);
-      } else {
-        failed++;
-      }
-
-      document.getElementById('status').innerText =
-        `Fetched ${completed} of ${users.length} (✅ ${success}, ❌ ${failed})`;
-
-      await delay(350); // Regular pacing
-      i++; // only increment on successful attempt (success or fail)
+    async function fetchCSV(url) {
+      const res = await axios.get(PROXY + encodeURIComponent(url));
+      return res.data;
     }
 
-    document.getElementById('results').style.display = 'table';
-    document.getElementById('status').innerText = `Done. ✅ ${success}, ❌ ${failed}`;
-  }
+    function parseCSV(data) {
+      const lines = data.trim().split('\n').slice(1);
+      return lines.map(line => {
+        const parts = line.split(',').map(s => s.trim());
+        if(parts.length < 4) return null;
+        const [user, id, seed, status] = parts;
+        if(!user || !id || !seed) return null;
+        return {
+          user: user.replace(/^@/, ''),
+          id,
+          seed: seed.toLowerCase(),
+          status: status.toLowerCase()
+        };
+      }).filter(Boolean).filter(u => u.status === 'active'); // Only active users
+    }
 
-  loadData();
-</script>
+    async function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
+    async function fetchKarmaWithRetry(user, id) {
+      const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
+      try {
+        const res = await axios.get(url);
+        return res.data?.stats?.karmaDelta ?? 0;
+      } catch (err) {
+        console.warn(`First fetch failed for ${id}, retrying in 1s...`);
+        await delay(RETRY_DELAY);
+        try {
+          const retryRes = await axios.get(url);
+          return retryRes.data?.stats?.karmaDelta ?? 0;
+        } catch (err2) {
+          console.error(`Retry also failed for ${id}`);
+          return null;
+        }
+      }
+    }
 
+    async function loadData() {
+      document.getElementById('pro-status').innerText = 'Fetching CSV...';
+      document.getElementById('amat-status').innerText = 'Fetching CSV...';
+
+      const rawCSV = await fetchCSV(CSV_URL);
+      const users = parseCSV(rawCSV);
+
+      const proUsers = users.filter(u => u.seed === 'pro');
+      const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
+
+      const proTbody = document.querySelector('#pro-table tbody');
+      const amatTbody = document.querySelector('#amat-table tbody');
+
+      let proSuccess = 0, proFailed = 0;
+      let amatSuccess = 0, amatFailed = 0;
+
+      async function processBatch(userBatch, tbody, seedType) {
+        const results = await Promise.all(
+          userBatch.map(({ user, id }) =>
+            fetchKarmaWithRetry(user, id).then(delta => ({ user, delta }))
+          )
+        );
+
+        results.forEach(({ user, delta }) => {
+          if (delta !== null) {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>@${user} - ${delta}</td>`;
+            tbody.appendChild(row);
+            if(seedType === 'pro') proSuccess++;
+            else amatSuccess++;
+          } else {
+            if(seedType === 'pro') proFailed++;
+            else amatFailed++;
+          }
+        });
+
+        if(seedType === 'pro') {
+          document.getElementById('pro-status').innerText = `Fetched ${proSuccess + proFailed} of ${proUsers.length} (✅ ${proSuccess}, ❌ ${proFailed})`;
+        } else {
+          document.getElementById('amat-status').innerText = `Fetched ${amatSuccess + amatFailed} of ${amatUsers.length} (✅ ${amatSuccess}, ❌ ${amatFailed})`;
+        }
+
+        await delay(BATCH_DELAY);
+      }
+
+      // Process Pro Users in batches
+      for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proTbody, 'pro');
+      }
+      // Process Amateur Users in batches
+      for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatTbody, 'amatuer');
+      }
+
+      document.getElementById('pro-table').style.display = 'table';
+      document.getElementById('amat-table').style.display = 'table';
+
+      document.getElementById('pro-status').innerText += ' - Done.';
+      document.getElementById('amat-status').innerText += ' - Done.';
+    }
+
+    loadData();
+  </script>
 </body>
 </html>
