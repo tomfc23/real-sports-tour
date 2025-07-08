@@ -25,6 +25,9 @@
 <script>
   const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
   const PROXY = 'https://api.allorigins.win/raw?url=';
+  const BATCH_SIZE = 5;
+  const RETRY_DELAY = 1000;
+  const BATCH_DELAY = 500;
 
   async function fetchCSV(url) {
     const res = await axios.get(PROXY + encodeURIComponent(url));
@@ -43,48 +46,56 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async function fetchKarma(userId) {
-    const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`);
-    const res = await axios.get(url);
-    return res.data?.stats?.karmaDelta ?? 0;
+  async function fetchKarmaWithRetry(user, id) {
+    const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
+    try {
+      const res = await axios.get(url);
+      return res.data?.stats?.karmaDelta ?? 0;
+    } catch (err) {
+      console.warn(`First fetch failed for ${id}, retrying in 1s...`);
+      await delay(RETRY_DELAY);
+      try {
+        const retryRes = await axios.get(url);
+        return retryRes.data?.stats?.karmaDelta ?? 0;
+      } catch (err2) {
+        console.error(`Retry also failed for ${id}`);
+        return null;
+      }
+    }
   }
 
   async function loadData() {
     document.getElementById('status').innerText = 'Fetching CSV...';
     const rawCSV = await fetchCSV(CSV_URL);
     const users = parseCSV(rawCSV);
-
     const tbody = document.querySelector('#results tbody');
-    let completed = 0, success = 0, failed = 0;
-    let i = 0;
 
-    while (i < users.length) {
-      const { user, id } = users[i];
-      let delta = null;
+    let success = 0, failed = 0;
 
-      try {
-        delta = await fetchKarma(id);
-      } catch (err) {
-        console.warn(`Fetch failed for ${id}, retrying in 1s...`);
-        await delay(1000);
-        continue; // try same index again
-      }
+    for (let i = 0; i < users.length; i += BATCH_SIZE) {
+      const batch = users.slice(i, i + BATCH_SIZE);
 
-      completed++;
-      if (delta !== null) {
-        success++;
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>@${user}</td><td>${id}</td><td>${delta}</td>`;
-        tbody.appendChild(row);
-      } else {
-        failed++;
-      }
+      const results = await Promise.all(
+        batch.map(({ user, id }) =>
+          fetchKarmaWithRetry(user, id).then(delta => ({ user, id, delta }))
+        )
+      );
+
+      results.forEach(({ user, id, delta }) => {
+        if (delta !== null) {
+          success++;
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>@${user}</td><td>${id}</td><td>${delta}</td>`;
+          tbody.appendChild(row);
+        } else {
+          failed++;
+        }
+      });
 
       document.getElementById('status').innerText =
-        `Fetched ${completed} of ${users.length} (✅ ${success}, ❌ ${failed})`;
+        `Fetched ${success + failed} of ${users.length} (✅ ${success}, ❌ ${failed})`;
 
-      await delay(350); // Regular pacing
-      i++; // only increment on successful attempt (success or fail)
+      await delay(BATCH_DELAY);
     }
 
     document.getElementById('results').style.display = 'table';
@@ -93,6 +104,7 @@
 
   loadData();
 </script>
+
 
 
 </body>
