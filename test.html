@@ -1,183 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Solo Tournament Leaderboard - Debug Mode</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Karma Delta Scraper</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
-    body { background: #121212; color: #eee; font-family: sans-serif; padding: 20px; }
-    h1 { text-align: center; }
-    #leaderboards { display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap; }
-    .board { background: #1e1e1e; border-radius: 8px; box-shadow: 0 0 10px #222; width: 360px; }
-    .board h2 { text-align: center; padding: 1rem 0; border-bottom: 1px solid #333; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th, td { padding: 0.4rem 0.8rem; text-align: left; }
-    th { border-bottom: 1px solid #333; }
-    tbody tr:nth-child(even) { background: #222; }
-    .loading { text-align: center; padding: 1rem; font-style: italic; color: #aaa; }
-    .status-active { color: #4caf50; font-weight: bold; }
-    .error { color: #f44336; text-align: center; padding: 1rem; }
+    body { font-family: sans-serif; background: #111; color: #fff; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+    th { background-color: #222; }
+    tr:nth-child(even) { background-color: #1a1a1a; }
   </style>
 </head>
 <body>
+  <h1>KarmaDelta Leaderboard</h1>
+  <div id="status">Loading...</div>
+  <table id="results" style="display:none">
+    <thead>
+      <tr><th>User</th><th>User ID</th><th>Karma Delta</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-<h1>Solo Tournament Leaderboard (Debug Mode)</h1>
-<div id="leaderboards">
-  <div class="board" id="pro-board">
-    <h2>Pro Bracket</h2>
-    <div class="loading">Loading...</div>
-    <table hidden>
-      <thead><tr><th>Rank</th><th>User</th><th>Karma</th><th>Status</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-  <div class="board" id="amateur-board">
-    <h2>Amateur Bracket</h2>
-    <div class="loading">Loading...</div>
-    <table hidden>
-      <thead><tr><th>Rank</th><th>User</th><th>Karma</th><th>Status</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</div>
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const PROXY = 'https://api.allorigins.win/raw?url=';
 
-<script>
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
-
-const karmaCache = new Map();
-
-async function fetchWithRetry(url, retries = 3, delay = 1000) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await axios.get(url);
-    } catch (e) {
-      if (i === retries - 1) throw e;
-      await new Promise(r => setTimeout(r, delay));
-    }
-  }
-}
-
-async function fetchKarma(userId) {
-  if (karmaCache.has(userId)) return karmaCache.get(userId);
-
-  const apiUrl = `https://api.real.vg/user/${userId}/karmafeed`;
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
-
-  try {
-    const response = await fetchWithRetry(proxyUrl);
-    const data = JSON.parse(response.data.contents);
-    const val = Number(data?.stats?.karmaDelta || 0);
-    karmaCache.set(userId, val);
-    console.log(`Fetched karma for ${userId}: ${val}`);
-    return val;
-  } catch (err) {
-    console.error(`Error fetching karma for ${userId}:`, err);
-    return 0;
-  }
-}
-
-function parseCSVWithDates(csv) {
-  const lines = csv.trim().split('\n');
-  const startDateLine = lines.shift();
-  const cutoffDateLine = lines.shift();
-
-  const headers = lines.shift().split(',').map(h => h.trim());
-  const players = lines.map(line => {
-    const values = line.split(',').map(v => v.trim());
-    const obj = {};
-    headers.forEach((h, i) => obj[h.toLowerCase()] = values[i]);
-    return obj;
-  });
-
-  const startDateStr = startDateLine?.split(',')[1]?.trim();
-  const cutoffDateStr = cutoffDateLine?.split(',')[1]?.trim();
-
-  return {
-    startDate: new Date(startDateStr),
-    cutoffDate: new Date(cutoffDateStr),
-    players
-  };
-}
-
-function fmt(num) {
-  return num.toLocaleString();
-}
-
-function renderBoard(id, players) {
-  const board = document.getElementById(id);
-  const loading = board.querySelector('.loading');
-  const table = board.querySelector('table');
-  const tbody = table.querySelector('tbody');
-
-  loading.hidden = true;
-  table.hidden = false;
-  tbody.innerHTML = '';
-
-  players.forEach((p, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i + 1}</td>
-      <td>@${p['user @']}</td>
-      <td>${fmt(p.karma)}</td>
-      <td class="status-active">Active</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-async function runLeaderboard() {
-  try {
-    const res = await fetch(CSV_URL);
-    const text = await res.text();
-    console.log('Raw CSV:', text.slice(0, 500)); // Only log first 500 chars
-
-    const { startDate, cutoffDate, players } = parseCSVWithDates(text);
-    const now = new Date();
-
-    console.log('Start Date:', startDate);
-    console.log('Cutoff Date:', cutoffDate);
-    console.log('Current Date:', now);
-
-    if (now < startDate) {
-      document.getElementById('leaderboards').innerHTML = `
-        <div class="error">Tournament hasn't started yet.<br><br>
-        Start Date: ${startDate.toLocaleDateString()}<br>
-        Cutoff Date: ${cutoffDate.toLocaleDateString()}</div>`;
-      return;
+    async function fetchCSV(url) {
+      const res = await axios.get(PROXY + encodeURIComponent(url));
+      return res.data;
     }
 
-    const pro = players.filter(p => p.seed?.toLowerCase() === 'pro' && p.status?.toLowerCase() === 'active');
-    const amat = players.filter(p => p.seed?.toLowerCase() === 'amatuer' && p.status?.toLowerCase() === 'active');
+    function parseCSV(data) {
+      const lines = data.trim().split('\n').slice(1); // Skip header
+      return lines.map(line => {
+        const [user, id] = line.split(',').map(s => s.trim());
+        return { user, id };
+      });
+    }
 
-    console.log('Pro players:', pro.length);
-    console.log('Amateur players:', amat.length);
-
-    const fetchAll = async (group) => {
-      const results = [];
-      for (const p of group) {
-        const karma = await fetchKarma(p['user id']);
-        results.push({ ...p, karma });
+    async function fetchKarma(userId) {
+      try {
+        const res = await axios.get(PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`));
+        return res.data.stats.karmaDelta || 0;
+      } catch (err) {
+        console.error(`Failed to fetch ${userId}:`, err);
+        return null;
       }
-      return results.sort((a, b) => b.karma - a.karma);
-    };
+    }
 
-    const [proResults, amatResults] = await Promise.all([
-      fetchAll(pro),
-      fetchAll(amat)
-    ]);
+    async function loadData() {
+      document.getElementById('status').innerText = 'Fetching CSV...';
+      const rawCSV = await fetchCSV(CSV_URL);
+      const users = parseCSV(rawCSV);
 
-    renderBoard('pro-board', proResults);
-    renderBoard('amateur-board', amatResults);
+      const tbody = document.querySelector('#results tbody');
+      let completed = 0;
 
-  } catch (err) {
-    console.error('Leaderboard error:', err);
-    document.getElementById('leaderboards').innerHTML = `<div class="error">Failed to load leaderboard.</div>`;
-  }
-}
+      for (let i = 0; i < users.length; i++) {
+        const { user, id } = users[i];
+        const delta = await fetchKarma(id);
+        completed++;
 
-runLeaderboard();
-</script>
+        if (delta !== null) {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>@${user}</td><td>${id}</td><td>${delta}</td>`;
+          tbody.appendChild(row);
+        }
 
+        document.getElementById('status').innerText = `Fetched ${completed} of ${users.length}`;
+        if (i % 10 === 9) await new Promise(r => setTimeout(r, 350)); // Delay after 10 requests
+      }
+
+      document.getElementById('results').style.display = 'table';
+      document.getElementById('status').innerText = 'Done.';
+    }
+
+    loadData();
+  </script>
 </body>
 </html>
