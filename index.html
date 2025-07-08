@@ -6,7 +6,7 @@
   <title>Real Sports Tour</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
-    * {
+  * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
@@ -277,14 +277,6 @@
     .amateur-section .section-title::before {
       background: linear-gradient(45deg, #f59e0b, #fbbf24);
     }
-    .division-section {
-  display: none;
-}
-
-.division-section.active {
-  display: block;
-}
-
   </style>
 </head>
 <body>
@@ -301,256 +293,235 @@
 
     <div id="status" class="status-loading">Loading tournament data...</div>
 
-    <!-- Pro Bracket -->
+    <!-- Pro Division -->
     <div id="pro-division" class="division-section active">
       <div class="leaderboard-section pro-section">
         <h2 class="section-title">🏆 Pro Division</h2>
 
         <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Mid-Tournament</span>
-            <span class="phase-badge">Day 2</span>
-          </div>
-          <table id="pro-day2-table" class="hidden">
-            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
-            <tbody></tbody>
-          </table>
+          <div class="phase-header"><span>Mid-Tournament</span><span class="phase-badge">Day 2</span></div>
+          <table id="pro-day2-table" class="hidden"><thead><tr><th>User - Karma (Day 1+2)</th></tr></thead><tbody></tbody></table>
         </div>
 
         <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Final Results</span>
-            <span class="phase-badge">Day 4</span>
-          </div>
-          <table id="pro-day4-table" class="hidden">
-            <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
-            <tbody></tbody>
-          </table>
+          <div class="phase-header"><span>Final Results</span><span class="phase-badge">Day 4</span></div>
+          <table id="pro-day4-table" class="hidden"><thead><tr><th>User - Karma (Day 1–4)</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
     </div>
 
-    <!-- Amateur Bracket -->
+    <!-- Amateur Division -->
     <div id="amat-division" class="division-section">
       <div class="leaderboard-section amateur-section">
         <h2 class="section-title">🥇 Amateur Division</h2>
 
         <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Mid-Tournament</span>
-            <span class="phase-badge">Day 2</span>
-          </div>
-          <table id="amat-day2-table" class="hidden">
-            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
-            <tbody></tbody>
-          </table>
+          <div class="phase-header"><span>Mid-Tournament</span><span class="phase-badge">Day 2</span></div>
+          <table id="amat-day2-table" class="hidden"><thead><tr><th>User - Karma (Day 1+2)</th></tr></thead><tbody></tbody></table>
         </div>
 
         <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Final Results</span>
-            <span class="phase-badge">Day 4</span>
-          </div>
-          <table id="amat-day4-table" class="hidden">
-            <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
-            <tbody></tbody>
-          </table>
+          <div class="phase-header"><span>Final Results</span><span class="phase-badge">Day 4</span></div>
+          <table id="amat-day4-table" class="hidden"><thead><tr><th>User - Karma (Day 1–4)</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
     </div>
   </div>
 
 <script>
-  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
-  const PROXY = 'https://api.allorigins.win/raw?url=';
-  const BATCH_SIZE = 5;
-  const RETRY_DELAY = 1000;
-  const BATCH_DELAY = 500;
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+const PROXY = 'https://api.allorigins.win/raw?url=';
+const BATCH_SIZE = 5;
+const RETRY_DELAY = 1000;
+const BATCH_DELAY = 500;
 
-  const tournamentStart = new Date("2025-07-07T07:00:00Z");
-  const day2Cutoff = new Date("2025-07-09T07:00:00Z");
-  const tournamentEnd = new Date("2025-07-11T07:00:00Z");
+const tournamentStart = new Date("2025-07-07T07:00:00Z");
+const day2Cutoff = new Date("2025-07-09T07:00:00Z");
+const tournamentEnd = new Date("2025-07-11T07:00:00Z");
 
-  async function fetchCSV(url) {
-    const res = await axios.get(PROXY + encodeURIComponent(url));
-    return res.data;
-  }
+async function fetchCSV(url) {
+  const res = await axios.get(PROXY + encodeURIComponent(url));
+  return res.data;
+}
 
-  function parseCSV(data) {
-    const lines = data.trim().split('\n').slice(1);
-    return lines.map(line => {
-      const [user, id, seed, status] = line.split(',').map(s => s.trim());
-      if (!user || !id || !seed) return null;
-      return {
-        user: user.replace(/^@/, ''),
-        id,
-        seed: seed.toLowerCase(),
-        status: status.toLowerCase()
-      };
-    }).filter(Boolean).filter(u => u.status === 'active');
-  }
-
-  async function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  async function fetchKarmaFeedWithRetry(user, id) {
-    const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
-    try {
-      const res = await axios.get(url);
-      return res.data.items || [];
-    } catch {
-      await delay(RETRY_DELAY);
-      try {
-        const retryRes = await axios.get(url);
-        return retryRes.data.items || [];
-      } catch {
-        return null;
-      }
-    }
-  }
-
-  function sumKarmaInRange(items, startDate, endDate) {
-    return items?.reduce((sum, item) => {
-      const createdAt = new Date(item.createdAt);
-      if (createdAt >= startDate && createdAt < endDate) {
-        return sum + (item.amount || 0);
-      }
-      return sum;
-    }, 0) || 0;
-  }
-
-  function calculateMedian(sortedUsers) {
-    const len = sortedUsers.length;
-    if (len === 0) return 0;
-    if (len % 2 === 1) return sortedUsers[Math.floor(len / 2)].karma;
-    return (sortedUsers[len / 2 - 1].karma + sortedUsers[len / 2].karma) / 2;
-  }
-
-  function renderLeaderboard(users, tbody, container) {
-    users.sort((a, b) => b.karma - a.karma);
-    tbody.innerHTML = '';
-    const cutoffIndex = Math.floor(users.length / 2);
-    const median = calculateMedian(users);
-
-    // Create/display median element
-    let medianEl = container.querySelector('.median-score');
-    if (!medianEl) {
-      medianEl = document.createElement('div');
-      medianEl.className = 'median-score';
-      medianEl.style = "margin-bottom:10px;color:#93c5fd;font-weight:bold;";
-      container.insertBefore(medianEl, tbody.parentElement);
-    }
-    medianEl.textContent = `Median Karma: ${Math.round(median)}`;
-
-    users.forEach(({ user, karma }, idx) => {
-      if (idx === cutoffIndex) {
-        const cutoffRow = document.createElement('tr');
-        cutoffRow.className = 'cutoff-line';
-        cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff --</td>`;
-        tbody.appendChild(cutoffRow);
-      }
-      const row = document.createElement('tr');
-      row.innerHTML = `<td>@${user} - ${karma}</td>`;
-      tbody.appendChild(row);
-    });
-  }
-
-  function updateTableVisibilityByDate() {
-    const now = new Date();
-    const beforeCutoff = now < day2Cutoff;
-
-    const tables = {
-      day2: ['pro-day2-table', 'amat-day2-table'],
-      day4: ['pro-day4-table', 'amat-day4-table']
+function parseCSV(data) {
+  const lines = data.trim().split('\n').slice(1);
+  const users = lines.map(line => {
+    const [user, id, seed, status] = line.split(',').map(s => s.trim());
+    if (!user || !id || !seed) return null;
+    const cleanSeed = seed.toLowerCase().replace('amatuer', 'amateur');
+    return {
+      user: user.replace(/^@/, ''),
+      id,
+      seed: cleanSeed,
+      status: status.toLowerCase()
     };
+  }).filter(Boolean).filter(u => u.status === 'active');
 
-    tables.day2.forEach(id => {
-      document.getElementById(id).style.display = beforeCutoff ? '' : 'none';
-    });
-    tables.day4.forEach(id => {
-      document.getElementById(id).style.display = beforeCutoff ? 'none' : '';
-    });
+  console.log("Parsed Users:", users);
+  return users;
+}
+
+async function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchKarmaFeedWithRetry(user, id) {
+  const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
+  try {
+    const res = await axios.get(url);
+    return res.data.items || [];
+  } catch {
+    await delay(RETRY_DELAY);
+    try {
+      const retryRes = await axios.get(url);
+      return retryRes.data.items || [];
+    } catch {
+      return null;
+    }
   }
+}
 
-  async function loadData() {
-    document.getElementById('status').innerHTML = '<span class="loading-spinner"></span>Fetching tournament data...';
-
-    const rawCSV = await fetchCSV(CSV_URL);
-    const users = parseCSV(rawCSV);
-    const proUsers = users.filter(u => u.seed === 'pro');
-    const amatUsers = users.filter(u => u.seed === 'amateur');
-
-    const proResultsDay2 = [], proResultsDay4 = [];
-    const amatResultsDay2 = [], amatResultsDay4 = [];
-
-    async function processBatch(batch, day2Arr, day4Arr) {
-      const results = await Promise.all(batch.map(async ({ user, id }) => {
-        const items = await fetchKarmaFeedWithRetry(user, id);
-        if (!items) return null;
-        return {
-          user,
-          karmaDay2: sumKarmaInRange(items, tournamentStart, day2Cutoff),
-          karmaDay4: sumKarmaInRange(items, tournamentStart, tournamentEnd)
-        };
-      }));
-      results.forEach(r => {
-        if (r) {
-          day2Arr.push({ user: r.user, karma: r.karmaDay2 });
-          day4Arr.push({ user: r.user, karma: r.karmaDay4 });
-        }
-      });
-      await delay(BATCH_DELAY);
+function sumKarmaInRange(items, startDate, endDate) {
+  return items?.reduce((sum, item) => {
+    const createdAt = new Date(item.createdAt);
+    if (createdAt >= startDate && createdAt < endDate) {
+      return sum + (item.amount || 0);
     }
+    return sum;
+  }, 0) || 0;
+}
 
-    for (let i = 0; i < proUsers.length; i += BATCH_SIZE) {
-      await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4);
-    }
-    for (let i = 0; i < amatUsers.length; i += BATCH_SIZE) {
-      await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4);
-    }
+function calculateMedian(sortedUsers) {
+  const len = sortedUsers.length;
+  if (len === 0) return 0;
+  if (len % 2 === 1) return sortedUsers[Math.floor(len / 2)].karma;
+  return (sortedUsers[len / 2 - 1].karma + sortedUsers[len / 2].karma) / 2;
+}
 
-    renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'), document.querySelector('#pro-division'));
-    renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'), document.querySelector('#pro-division'));
-    renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'), document.querySelector('#amat-division'));
-    renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'), document.querySelector('#amat-division'));
+function renderLeaderboard(users, tbody, container) {
+  users.sort((a, b) => b.karma - a.karma);
+  tbody.innerHTML = '';
+  const cutoffIndex = Math.floor(users.length / 2);
+  const median = calculateMedian(users);
 
-    ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
-      document.getElementById(id).classList.remove('hidden');
-    });
-
-    updateTableVisibilityByDate();
-
-    document.getElementById('status').innerHTML = '✅ Tournament data loaded successfully!';
-    document.getElementById('status').classList.remove('status-loading');
+  let medianEl = container.querySelector('.median-score');
+  if (!medianEl) {
+    medianEl = document.createElement('div');
+    medianEl.className = 'median-score';
+    medianEl.style = "margin-bottom:10px;color:#93c5fd;font-weight:bold;";
+    container.insertBefore(medianEl, tbody.parentElement);
   }
+  medianEl.textContent = `Median Karma: ${Math.round(median)}`;
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const tabs = document.querySelectorAll('.tab-button');
-    const proDiv = document.getElementById('pro-division');
-    const amatDiv = document.getElementById('amat-division');
-
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => {
-          t.classList.remove('active');
-          t.setAttribute('aria-selected', 'false');
-        });
-        tab.classList.add('active');
-        tab.setAttribute('aria-selected', 'true');
-
-        if (tab.id === 'tab-pro') {
-          proDiv.classList.add('active');
-          amatDiv.classList.remove('active');
-        } else {
-          amatDiv.classList.add('active');
-          proDiv.classList.remove('active');
-        }
-      });
-    });
-
-    loadData();
+  users.forEach(({ user, karma }, idx) => {
+    if (idx === cutoffIndex) {
+      const cutoffRow = document.createElement('tr');
+      cutoffRow.className = 'cutoff-line';
+      cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff --</td>`;
+      tbody.appendChild(cutoffRow);
+    }
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>@${user} - ${karma}</td>`;
+    tbody.appendChild(row);
   });
+}
+
+function updateTableVisibilityByDate() {
+  const now = new Date();
+  const beforeCutoff = now < day2Cutoff;
+
+  const tables = {
+    day2: ['pro-day2-table', 'amat-day2-table'],
+    day4: ['pro-day4-table', 'amat-day4-table']
+  };
+
+  tables.day2.forEach(id => {
+    document.getElementById(id).style.display = beforeCutoff ? '' : 'none';
+  });
+  tables.day4.forEach(id => {
+    document.getElementById(id).style.display = beforeCutoff ? 'none' : '';
+  });
+}
+
+async function loadData() {
+  document.getElementById('status').innerHTML = '<span class="loading-spinner"></span>Fetching tournament data...';
+
+  const rawCSV = await fetchCSV(CSV_URL);
+  const users = parseCSV(rawCSV);
+  const proUsers = users.filter(u => u.seed === 'pro');
+  const amatUsers = users.filter(u => u.seed === 'amateur');
+
+  const proResultsDay2 = [], proResultsDay4 = [];
+  const amatResultsDay2 = [], amatResultsDay4 = [];
+
+  async function processBatch(batch, day2Arr, day4Arr) {
+    const results = await Promise.all(batch.map(async ({ user, id }) => {
+      const items = await fetchKarmaFeedWithRetry(user, id);
+      if (!items) return null;
+      return {
+        user,
+        karmaDay2: sumKarmaInRange(items, tournamentStart, day2Cutoff),
+        karmaDay4: sumKarmaInRange(items, tournamentStart, tournamentEnd)
+      };
+    }));
+    results.forEach(r => {
+      if (r) {
+        day2Arr.push({ user: r.user, karma: r.karmaDay2 });
+        day4Arr.push({ user: r.user, karma: r.karmaDay4 });
+      }
+    });
+    await delay(BATCH_DELAY);
+  }
+
+  for (let i = 0; i < proUsers.length; i += BATCH_SIZE) {
+    await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4);
+  }
+  for (let i = 0; i < amatUsers.length; i += BATCH_SIZE) {
+    await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4);
+  }
+
+  renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'), document.querySelector('#pro-division'));
+  renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'), document.querySelector('#pro-division'));
+  renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'), document.querySelector('#amat-division'));
+  renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'), document.querySelector('#amat-division'));
+
+  ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
+    document.getElementById(id).classList.remove('hidden');
+  });
+
+  updateTableVisibilityByDate();
+
+  document.getElementById('status').innerHTML = '✅ Tournament data loaded successfully!';
+  document.getElementById('status').classList.remove('status-loading');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tabs = document.querySelectorAll('.tab-button');
+  const proDiv = document.getElementById('pro-division');
+  const amatDiv = document.getElementById('amat-division');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+
+      if (tab.id === 'tab-pro') {
+        proDiv.classList.add('active');
+        amatDiv.classList.remove('active');
+      } else {
+        amatDiv.classList.add('active');
+        proDiv.classList.remove('active');
+      }
+    });
+  });
+
+  loadData();
+});
 </script>
 </body>
 </html>
