@@ -77,7 +77,7 @@
 </head>
 <body>
 
-<h1>Solo Tournament Leaderboard - Test Mode (Ignore Start Date)</h1>
+<h1>Solo Tournament Leaderboard - Test Mode (rolling cors)</h1>
 <div id="leaderboards">
   <div class="board" id="pro-board">
     <h2>Pro Bracket</h2>
@@ -130,13 +130,36 @@ function fmtNum(num) {
   return num.toLocaleString();
 }
 
+const CORS_PROXIES = [
+  'https://allorigins.win/raw?url=',
+  'https://cors-anywhere.herokuapp.com/',
+  'https://api.allorigins.win/raw?url=',
+  // add more free proxies here if you want
+];
+
+async function fetchWithProxies(url) {
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const fullUrl = proxy + encodeURIComponent(url);
+      const resp = await fetch(fullUrl);
+      if (!resp.ok) throw new Error(`Proxy ${proxy} failed with status ${resp.status}`);
+      const json = await resp.json();
+      return json;
+    } catch (err) {
+      console.warn(`Proxy ${proxy} failed:`, err.message);
+      // try next proxy
+    }
+  }
+  throw new Error('All proxies failed');
+}
+
 async function fetchKarmaDelta(userId) {
+  const url = `${API_BASE}${userId}`;
   try {
-    const resp = await fetch(`${API_BASE}${userId}`);
-    if (!resp.ok) throw new Error('API error');
-    const json = await resp.json();
+    const json = await fetchWithProxies(url);
     return Number(json.karmaDelta) || 0;
   } catch(e) {
+    console.error('fetchKarmaDelta all proxies failed:', e);
     return 0;
   }
 }
