@@ -23,60 +23,72 @@
   </table>
 
   <script>
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
-    const PROXY = 'https://api.allorigins.win/raw?url=';
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+  const PROXY = 'https://api.allorigins.win/raw?url=';
 
-    async function fetchCSV(url) {
-      const res = await axios.get(PROXY + encodeURIComponent(url));
-      return res.data;
-    }
+  async function fetchCSV(url) {
+    const res = await axios.get(PROXY + encodeURIComponent(url));
+    return res.data;
+  }
 
-    function parseCSV(data) {
-      const lines = data.trim().split('\n').slice(1); // Skip header
-      return lines.map(line => {
-        const [user, id] = line.split(',').map(s => s.trim());
-        return { user, id };
-      });
-    }
+  function parseCSV(data) {
+    const lines = data.trim().split('\n').slice(1); // skip header
+    const users = [];
 
-    async function fetchKarma(userId) {
-      try {
-        const res = await axios.get(PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`));
-        return res.data.stats.karmaDelta || 0;
-      } catch (err) {
-        console.error(`Failed to fetch ${userId}:`, err);
-        return null;
+    for (let line of lines) {
+      const parts = line.split(',').map(s => s.trim());
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        users.push({ user: parts[0].replace(/^@/, ''), id: parts[1] });
       }
     }
 
-    async function loadData() {
-      document.getElementById('status').innerText = 'Fetching CSV...';
-      const rawCSV = await fetchCSV(CSV_URL);
-      const users = parseCSV(rawCSV);
+    return users;
+  }
 
-      const tbody = document.querySelector('#results tbody');
-      let completed = 0;
+  async function fetchKarma(userId) {
+    try {
+      const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`);
+      const res = await axios.get(url);
+      return res.data?.stats?.karmaDelta ?? 0;
+    } catch (err) {
+      console.warn(`Failed for ${userId}:`, err.message);
+      return null;
+    }
+  }
 
-      for (let i = 0; i < users.length; i++) {
-        const { user, id } = users[i];
-        const delta = await fetchKarma(id);
-        completed++;
+  async function loadData() {
+    document.getElementById('status').innerText = 'Fetching CSV...';
+    const rawCSV = await fetchCSV(CSV_URL);
+    const users = parseCSV(rawCSV);
 
-        if (delta !== null) {
-          const row = document.createElement('tr');
-          row.innerHTML = `<td>@${user}</td><td>${id}</td><td>${delta}</td>`;
-          tbody.appendChild(row);
-        }
+    const tbody = document.querySelector('#results tbody');
+    let completed = 0, success = 0, failed = 0;
 
-        document.getElementById('status').innerText = `Fetched ${completed} of ${users.length}`;
-        if (i % 10 === 9) await new Promise(r => setTimeout(r, 350)); // Delay after 10 requests
+    for (let i = 0; i < users.length; i++) {
+      const { user, id } = users[i];
+      const delta = await fetchKarma(id);
+      completed++;
+
+      if (delta !== null) {
+        success++;
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user}</td><td>${id}</td><td>${delta}</td>`;
+        tbody.appendChild(row);
+      } else {
+        failed++;
       }
 
-      document.getElementById('results').style.display = 'table';
-      document.getElementById('status').innerText = 'Done.';
+      document.getElementById('status').innerText =
+        `Fetched ${completed} of ${users.length} (✅ ${success}, ❌ ${failed})`;
+
+      if (i % 10 === 9) await new Promise(r => setTimeout(r, 350));
     }
 
-    loadData();
-  </script>
+    document.getElementById('results').style.display = 'table';
+    document.getElementById('status').innerText = `Done. ✅ ${success}, ❌ ${failed}`;
+  }
+
+  loadData();
+</script>
 </body>
 </html>
