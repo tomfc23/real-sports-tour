@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Real Sports Tour</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    /* Your existing styles ... */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+      color: #e8e8e8;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 20px 0;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(45deg, #4f46e5, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      font-size: 1.1rem;
+      color: #9ca3af;
+      font-weight: 400;
+    }
+    
+    #status {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 30px;
+      text-align: center;
+      font-size: 1.1rem;
+      color: #06b6d4;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Tabs styling */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+      gap: 20px;
+    }
+
+    .tab-button {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      color: #cbd5e1;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: background 0.3s, color 0.3s;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .tab-button.active {
+      background: linear-gradient(45deg, #4f46e5, #06b6d4);
+      color: white;
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.7);
+    }
+
+    .leaderboard-grid {
+      display: none; /* Hide all by default, show one via JS */
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .leaderboard-grid.active {
+      display: grid;
+    }
+    
+    .leaderboard-section {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+    
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 24px;
+      background: linear-gradient(45deg, #4f46e5, #06b6d4);
+      border-radius: 2px;
+    }
+    
+    .tournament-phase {
+      margin-bottom: 35px;
+    }
+    
+    .phase-header {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #cbd5e1;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .phase-badge {
+      background: linear-gradient(45deg, #4f46e5, #06b6d4);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    th, td {
+      padding: 16px 20px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    th {
+      background: rgba(255, 255, 255, 0.05);
+      font-weight: 600;
+      color: #f1f5f9;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    td {
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      transition: all 0.2s ease;
+    }
+    
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+      color: #f8fafc;
+    }
+    
+    tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.01);
+    }
+    
+    tr.cutoff-line td {
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+      border-top: 2px solid #ef4444;
+      border-bottom: 2px solid #ef4444;
+      font-style: italic;
+      text-align: center;
+      color: #fca5a5;
+      font-weight: 600;
+      padding: 12px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(6, 182, 212, 0.3);
+      border-radius: 50%;
+      border-top-color: #06b6d4;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .status-loading::before {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(6, 182, 212, 0.3);
+      border-radius: 50%;
+      border-top-color: #06b6d4;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    
+    @media (max-width: 768px) {
+      .leaderboard-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .container {
+        padding: 15px;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .leaderboard-section {
+        padding: 20px;
+      }
+      
+      th, td {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+      }
+    }
+    
+    .pro-section {
+      border-left: 4px solid #10b981;
+    }
+    
+    .amateur-section {
+      border-left: 4px solid #f59e0b;
+    }
+    
+    .pro-section .section-title::before {
+      background: linear-gradient(45deg, #10b981, #34d399);
+    }
+    
+    .amateur-section .section-title::before {
+      background: linear-gradient(45deg, #f59e0b, #fbbf24);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Real Sports Tour</h1>
+      <p class="subtitle">Made by @tomfc and @barry</p>
+    </header>
+
+    <div id="status" class="status-loading">Loading tournament data...</div>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" aria-label="Division tabs">
+      <button class="tab-button active" role="tab" aria-selected="true" aria-controls="pro-division" id="tab-pro">Pro Division</button>
+      <button class="tab-button" role="tab" aria-selected="false" aria-controls="amat-division" id="tab-amat">Amateur Division</button>
+    </div>
+
+    <!-- Pro leaderboard -->
+    <div class="leaderboard-grid active" id="pro-division" role="tabpanel" aria-labelledby="tab-pro">
+      <div class="leaderboard-section pro-section">
+        <h2 class="section-title">🏆 Pro Division</h2>
+        
+        <div class="tournament-phase">
+          <div class="phase-header">
+            <span>Mid-Tournament</span>
+            <span class="phase-badge">Day 2</span>
+          </div>
+          <table id="pro-day2-table" class="hidden" aria-label="Pro Division Day 2 leaderboard">
+            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="tournament-phase">
+          <div class="phase-header">
+            <span>Final Results</span>
+            <span class="phase-badge">Day 4</span>
+          </div>
+          <table id="pro-day4-table" class="hidden" aria-label="Pro Division Day 4 leaderboard">
+            <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Amateur leaderboard -->
+    <div class="leaderboard-grid" id="amat-division" role="tabpanel" aria-labelledby="tab-amat" hidden>
+      <div class="leaderboard-section amateur-section">
+        <h2 class="section-title">🥇 Amateur Division</h2>
+        
+        <div class="tournament-phase">
+          <div class="phase-header">
+            <span>Mid-Tournament</span>
+            <span class="phase-badge">Day 2</span>
+          </div>
+          <table id="amat-day2-table" class="hidden" aria-label="Amateur Division Day 2 leaderboard">
+            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="tournament-phase">
+          <div class="phase-header">
+            <span>Final Results</span>
+            <span class="phase-badge">Day 4</span>
+          </div>
+          <table id="amat-day4-table" class="hidden" aria-label="Amateur Division Day 4 leaderboard">
+            <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Your existing constants and functions (fetchCSV, parseCSV, delay, fetchKarmaFeedWithRetry, sumKarmaInRange, renderLeaderboard) remain unchanged
+
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const PROXY = 'https://api.allorigins.win/raw?url=';
+    const BATCH_SIZE = 5;
+    const RETRY_DELAY = 1000;
+    const BATCH_DELAY = 500;
+
+    const tournamentStart = new Date("2025-07-07T07:00:00Z");
+    const day2Cutoff = new Date("2025-07-09T07:00:00Z"); 
+    const tournamentEnd = new Date("2025-07-11T07:00:00Z"); 
+
+    async function fetchCSV(url) {
+      const res = await axios.get(PROXY + encodeURIComponent(url));
+      return res.data;
+    }
+
+    function parseCSV(data) {
+      const lines = data.trim().split('\n').slice(1);
+      return lines.map(line => {
+        const parts = line.split(',').map(s => s.trim());
+        if(parts.length < 4) return null;
+        const [user, id, seed, status] = parts;
+        if(!user || !id || !seed) return null;
+        return {
+          user: user.replace(/^@/, ''),
+          id,
+          seed: seed.toLowerCase(),
+          status: status.toLowerCase()
+        };
+      }).filter(Boolean).filter(u => u.status === 'active');
+    }
+
+    async function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function fetchKarmaFeedWithRetry(user, id) {
+      const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
+      try {
+        const res = await axios.get(url);
+        return res.data.items || [];
+      } catch (err) {
+        console.warn(`First fetch failed for ${id}, retrying in 1s...`);
+        await delay(RETRY_DELAY);
+        try {
+          const retryRes = await axios.get(url);
+          return retryRes.data.items || [];
+        } catch (err2) {
+          console.error(`Retry also failed for ${id}`);
+          return null;
+        }
+      }
+    }
+
+    function sumKarmaInRange(items, startDate, endDate) {
+      if(!items || !Array.isArray(items)) return 0;
+      return items.reduce((sum, item) => {
+        const createdAt = new Date(item.createdAt);
+        if (createdAt >= startDate && createdAt < endDate) {
+          return sum + (item.amount || 0);
+        }
+        return sum;
+      }, 0);
+    }
+
+    function renderLeaderboard(users, tbody) {
+      users.sort((a,b) => b.karma - a.karma);
+      tbody.innerHTML = '';
+      const cutoffIndex = Math.floor(users.length / 2);
+
+      users.forEach(({ user, karma }, idx) => {
+        if(idx === cutoffIndex) {
+          const cutoffRow = document.createElement('tr');
+          cutoffRow.className = 'cutoff-line';
+          const td = document.createElement('td');
+          td.colSpan = 1;
+          td.textContent = '-- Elimination Cutoff --';
+          cutoffRow.appendChild(td);
+          tbody.appendChild(cutoffRow);
+        }
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user} - ${karma}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function loadData() {
+      document.getElementById('status').innerHTML = '<span class="loading-spinner"></span>Fetching tournament data...';
+
+      const rawCSV = await fetchCSV(CSV_URL);
+      const users = parseCSV(rawCSV);
+
+      const proUsers = users.filter(u => u.seed === 'pro');
+      const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
+
+      const proResultsDay2 = [];
+      const proResultsDay4 = [];
+      const amatResultsDay2 = [];
+      const amatResultsDay4 = [];
+
+      async function processBatch(userBatch, day2Arr, day4Arr, seedType) {
+        const results = await Promise.all(
+          userBatch.map(async ({ user, id }) => {
+            const items = await fetchKarmaFeedWithRetry(user, id);
+            if(!items) return null;
+            const karmaDay2 = sumKarmaInRange(items, tournamentStart, day2Cutoff);
+            const karmaDay4 = sumKarmaInRange(items, tournamentStart, tournamentEnd);
+            return { user, karmaDay2, karmaDay4 };
+          })
+        );
+
+        results.forEach(res => {
+          if(res) {
+            day2Arr.push({ user: res.user, karma: res.karmaDay2 });
+            day4Arr.push({ user: res.user, karma: res.karmaDay4 });
+          }
+        });
+
+        document.getElementById('status').innerHTML = `<span class="loading-spinner"></span>Processed ${day4Arr.length} ${seedType} users...`;
+
+        await delay(BATCH_DELAY);
+      }
+
+      for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4, 'Pro');
+      }
+      for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4, 'Amateur');
+      }
+
+      renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'));
+      renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'));
+      renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'));
+      renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'));
+
+      ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
+        document.getElementById(id).classList.remove('hidden');
+      });
+
+      document.getElementById('status').innerHTML = '✅ Tournament data loaded successfully!';
+      document.getElementById('status').classList.remove('status-loading');
+    }
+
+    // Tab switching logic
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabs = document.querySelectorAll('.tab-button');
+      const proDiv = document.getElementById('pro-division');
+      const amatDiv = document.getElementById('amat-division');
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+          });
+          tab.classList.add('active');
+          tab.setAttribute('aria-selected', 'true');
+
+          if(tab.id === 'tab-pro') {
+            proDiv.classList.add('active');
+            proDiv.removeAttribute('hidden');
+            amatDiv.classList.remove('active');
+            amatDiv.setAttribute('hidden', '');
+          } else {
+            amatDiv.classList.add('active');
+            amatDiv.removeAttribute('hidden');
+            proDiv.classList.remove('active');
+            proDiv.setAttribute('hidden', '');
+          }
+        });
+      });
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
