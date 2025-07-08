@@ -176,16 +176,16 @@ async function runLeaderboard() {
   const proPlayers = players.filter(p => p.seed.toLowerCase() === 'pro' && p.status.toLowerCase() === 'active');
   const amateurPlayers = players.filter(p => p.seed.toLowerCase() === 'amatuer' && p.status.toLowerCase() === 'active');
 
-  async function fetchAllKarma(players) {
-    const results = [];
-    for (let i = 0; i < players.length; i++) {
-      const p = players[i];
-      const karmaDelta = await fetchKarmaDelta(p['user id']);
-      results.push({ ...p, karmaDelta });
-      if ((i + 1) % 10 === 0) await sleep(350);
-    }
-    return results;
+async function fetchAllKarma(players) {
+  const results = [];
+  for (let i = 0; i < players.length; i++) {
+    const p = players[i];
+    const karmaDelta = await fetchKarmaDelta(p['user id']);
+    results.push({ ...p, karmaDelta });
   }
+  return results;
+}
+
 
   const [proWithKarma, amateurWithKarma] = await Promise.all([
     fetchAllKarma(proPlayers),
