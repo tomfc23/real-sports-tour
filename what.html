@@ -420,23 +420,44 @@
       }, 0) || 0;
     }
 
-    function renderLeaderboard(users, tbody) {
-      users.sort((a, b) => b.karma - a.karma);
-      tbody.innerHTML = '';
-      const cutoffIndex = Math.floor(users.length / 2);
+   function renderLeaderboard(users, tbody) {
+  users.sort((a, b) => b.karma - a.karma);
+  tbody.innerHTML = '';
 
-      users.forEach(({ user, karma }, idx) => {
-        if (idx === cutoffIndex) {
-          const cutoffRow = document.createElement('tr');
-          cutoffRow.className = 'cutoff-line';
-          cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff --</td>`;
-          tbody.appendChild(cutoffRow);
-        }
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>@${user} - ${karma}</td>`;
-        tbody.appendChild(row);
-      });
-    }
+  // Calculate the median score
+  const scores = users.map(u => u.karma).sort((a, b) => a - b);
+  const mid = Math.floor(scores.length / 2);
+  const median = scores.length % 2 === 0
+    ? (scores[mid - 1] + scores[mid]) / 2
+    : scores[mid];
+
+  // Split into survivors and eliminated
+  const survivors = users.filter(u => u.karma >= median);
+  const eliminated = users.filter(u => u.karma < median);
+
+  // Add survivors first
+  survivors.forEach(({ user, karma }) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>@${user} - ${karma}</td>`;
+    tbody.appendChild(row);
+  });
+
+  // Add cutoff line
+  if (eliminated.length > 0) {
+    const cutoffRow = document.createElement('tr');
+    cutoffRow.className = 'cutoff-line';
+    cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff (Median: ${median}) --</td>`;
+    tbody.appendChild(cutoffRow);
+  }
+
+  // Then add eliminated players
+  eliminated.forEach(({ user, karma }) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>@${user} - ${karma}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
 
     function updateTableVisibilityByDate() {
       const now = new Date();
