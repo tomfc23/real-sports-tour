@@ -2,11 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Real Sports Tour</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
-    /* Your existing styles ... */
     * {
       margin: 0;
       padding: 0;
@@ -287,25 +286,24 @@
       <p class="subtitle">Made by @tomfc and @barry</p>
     </header>
 
-    <div id="status" class="status-loading">Loading tournament data...</div>
-
-    <!-- Tabs -->
-    <div class="tabs" role="tablist" aria-label="Division tabs">
-      <button class="tab-button active" role="tab" aria-selected="true" aria-controls="pro-division" id="tab-pro">Pro Division</button>
-      <button class="tab-button" role="tab" aria-selected="false" aria-controls="amat-division" id="tab-amat">Amateur Division</button>
+    <div class="tabs">
+      <button id="tab-pro" class="tab-button active" aria-selected="true">Pro Division</button>
+      <button id="tab-amat" class="tab-button" aria-selected="false">Amateur Division</button>
     </div>
 
-    <!-- Pro leaderboard -->
-    <div class="leaderboard-grid active" id="pro-division" role="tabpanel" aria-labelledby="tab-pro">
+    <div id="status" class="status-loading">Loading tournament data...</div>
+
+    <!-- Pro Bracket -->
+    <div id="pro-division" class="division-section active">
       <div class="leaderboard-section pro-section">
         <h2 class="section-title">🏆 Pro Division</h2>
-        
+
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Mid-Tournament</span>
             <span class="phase-badge">Day 2</span>
           </div>
-          <table id="pro-day2-table" class="hidden" aria-label="Pro Division Day 2 leaderboard">
+          <table id="pro-day2-table" class="hidden">
             <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
             <tbody></tbody>
           </table>
@@ -316,7 +314,7 @@
             <span>Final Results</span>
             <span class="phase-badge">Day 4</span>
           </div>
-          <table id="pro-day4-table" class="hidden" aria-label="Pro Division Day 4 leaderboard">
+          <table id="pro-day4-table" class="hidden">
             <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
             <tbody></tbody>
           </table>
@@ -324,17 +322,17 @@
       </div>
     </div>
 
-    <!-- Amateur leaderboard -->
-    <div class="leaderboard-grid" id="amat-division" role="tabpanel" aria-labelledby="tab-amat" hidden>
+    <!-- Amateur Bracket -->
+    <div id="amat-division" class="division-section">
       <div class="leaderboard-section amateur-section">
         <h2 class="section-title">🥇 Amateur Division</h2>
-        
+
         <div class="tournament-phase">
           <div class="phase-header">
             <span>Mid-Tournament</span>
             <span class="phase-badge">Day 2</span>
           </div>
-          <table id="amat-day2-table" class="hidden" aria-label="Amateur Division Day 2 leaderboard">
+          <table id="amat-day2-table" class="hidden">
             <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
             <tbody></tbody>
           </table>
@@ -345,7 +343,7 @@
             <span>Final Results</span>
             <span class="phase-badge">Day 4</span>
           </div>
-          <table id="amat-day4-table" class="hidden" aria-label="Amateur Division Day 4 leaderboard">
+          <table id="amat-day4-table" class="hidden">
             <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
             <tbody></tbody>
           </table>
@@ -355,8 +353,6 @@
   </div>
 
   <script>
-    // Your existing constants and functions (fetchCSV, parseCSV, delay, fetchKarmaFeedWithRetry, sumKarmaInRange, renderLeaderboard) remain unchanged
-
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
     const PROXY = 'https://api.allorigins.win/raw?url=';
     const BATCH_SIZE = 5;
@@ -364,8 +360,8 @@
     const BATCH_DELAY = 500;
 
     const tournamentStart = new Date("2025-07-07T07:00:00Z");
-    const day2Cutoff = new Date("2025-07-09T07:00:00Z"); 
-    const tournamentEnd = new Date("2025-07-11T07:00:00Z"); 
+    const day2Cutoff = new Date("2025-07-09T07:00:00Z");
+    const tournamentEnd = new Date("2025-07-11T07:00:00Z");
 
     async function fetchCSV(url) {
       const res = await axios.get(PROXY + encodeURIComponent(url));
@@ -375,10 +371,8 @@
     function parseCSV(data) {
       const lines = data.trim().split('\n').slice(1);
       return lines.map(line => {
-        const parts = line.split(',').map(s => s.trim());
-        if(parts.length < 4) return null;
-        const [user, id, seed, status] = parts;
-        if(!user || !id || !seed) return null;
+        const [user, id, seed, status] = line.split(',').map(s => s.trim());
+        if (!user || !id || !seed) return null;
         return {
           user: user.replace(/^@/, ''),
           id,
@@ -397,43 +391,37 @@
       try {
         const res = await axios.get(url);
         return res.data.items || [];
-      } catch (err) {
-        console.warn(`First fetch failed for ${id}, retrying in 1s...`);
+      } catch {
         await delay(RETRY_DELAY);
         try {
           const retryRes = await axios.get(url);
           return retryRes.data.items || [];
-        } catch (err2) {
-          console.error(`Retry also failed for ${id}`);
+        } catch {
           return null;
         }
       }
     }
 
     function sumKarmaInRange(items, startDate, endDate) {
-      if(!items || !Array.isArray(items)) return 0;
-      return items.reduce((sum, item) => {
+      return items?.reduce((sum, item) => {
         const createdAt = new Date(item.createdAt);
         if (createdAt >= startDate && createdAt < endDate) {
           return sum + (item.amount || 0);
         }
         return sum;
-      }, 0);
+      }, 0) || 0;
     }
 
     function renderLeaderboard(users, tbody) {
-      users.sort((a,b) => b.karma - a.karma);
+      users.sort((a, b) => b.karma - a.karma);
       tbody.innerHTML = '';
       const cutoffIndex = Math.floor(users.length / 2);
 
       users.forEach(({ user, karma }, idx) => {
-        if(idx === cutoffIndex) {
+        if (idx === cutoffIndex) {
           const cutoffRow = document.createElement('tr');
           cutoffRow.className = 'cutoff-line';
-          const td = document.createElement('td');
-          td.colSpan = 1;
-          td.textContent = '-- Elimination Cutoff --';
-          cutoffRow.appendChild(td);
+          cutoffRow.innerHTML = `<td colspan="1">-- Elimination Cutoff --</td>`;
           tbody.appendChild(cutoffRow);
         }
         const row = document.createElement('tr');
@@ -442,48 +430,58 @@
       });
     }
 
+    function updateTableVisibilityByDate() {
+      const now = new Date();
+      const beforeCutoff = now < day2Cutoff;
+
+      const tables = {
+        day2: ['pro-day2-table', 'amat-day2-table'],
+        day4: ['pro-day4-table', 'amat-day4-table']
+      };
+
+      tables.day2.forEach(id => {
+        document.getElementById(id).style.display = beforeCutoff ? '' : 'none';
+      });
+      tables.day4.forEach(id => {
+        document.getElementById(id).style.display = beforeCutoff ? 'none' : '';
+      });
+    }
+
     async function loadData() {
       document.getElementById('status').innerHTML = '<span class="loading-spinner"></span>Fetching tournament data...';
 
       const rawCSV = await fetchCSV(CSV_URL);
       const users = parseCSV(rawCSV);
-
       const proUsers = users.filter(u => u.seed === 'pro');
-      const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
+      const amatUsers = users.filter(u => u.seed === 'amatuer');
 
-      const proResultsDay2 = [];
-      const proResultsDay4 = [];
-      const amatResultsDay2 = [];
-      const amatResultsDay4 = [];
+      const proResultsDay2 = [], proResultsDay4 = [];
+      const amatResultsDay2 = [], amatResultsDay4 = [];
 
-      async function processBatch(userBatch, day2Arr, day4Arr, seedType) {
-        const results = await Promise.all(
-          userBatch.map(async ({ user, id }) => {
-            const items = await fetchKarmaFeedWithRetry(user, id);
-            if(!items) return null;
-            const karmaDay2 = sumKarmaInRange(items, tournamentStart, day2Cutoff);
-            const karmaDay4 = sumKarmaInRange(items, tournamentStart, tournamentEnd);
-            return { user, karmaDay2, karmaDay4 };
-          })
-        );
-
-        results.forEach(res => {
-          if(res) {
-            day2Arr.push({ user: res.user, karma: res.karmaDay2 });
-            day4Arr.push({ user: res.user, karma: res.karmaDay4 });
+      async function processBatch(batch, day2Arr, day4Arr) {
+        const results = await Promise.all(batch.map(async ({ user, id }) => {
+          const items = await fetchKarmaFeedWithRetry(user, id);
+          if (!items) return null;
+          return {
+            user,
+            karmaDay2: sumKarmaInRange(items, tournamentStart, day2Cutoff),
+            karmaDay4: sumKarmaInRange(items, tournamentStart, tournamentEnd)
+          };
+        }));
+        results.forEach(r => {
+          if (r) {
+            day2Arr.push({ user: r.user, karma: r.karmaDay2 });
+            day4Arr.push({ user: r.user, karma: r.karmaDay4 });
           }
         });
-
-        document.getElementById('status').innerHTML = `<span class="loading-spinner"></span>Processed ${day4Arr.length} ${seedType} users...`;
-
         await delay(BATCH_DELAY);
       }
 
-      for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
-        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4, 'Pro');
+      for (let i = 0; i < proUsers.length; i += BATCH_SIZE) {
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4);
       }
-      for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
-        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4, 'Amateur');
+      for (let i = 0; i < amatUsers.length; i += BATCH_SIZE) {
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4);
       }
 
       renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'));
@@ -495,11 +493,12 @@
         document.getElementById(id).classList.remove('hidden');
       });
 
+      updateTableVisibilityByDate();
+
       document.getElementById('status').innerHTML = '✅ Tournament data loaded successfully!';
       document.getElementById('status').classList.remove('status-loading');
     }
 
-    // Tab switching logic
     document.addEventListener('DOMContentLoaded', () => {
       const tabs = document.querySelectorAll('.tab-button');
       const proDiv = document.getElementById('pro-division');
@@ -514,22 +513,18 @@
           tab.classList.add('active');
           tab.setAttribute('aria-selected', 'true');
 
-          if(tab.id === 'tab-pro') {
+          if (tab.id === 'tab-pro') {
             proDiv.classList.add('active');
-            proDiv.removeAttribute('hidden');
             amatDiv.classList.remove('active');
-            amatDiv.setAttribute('hidden', '');
           } else {
             amatDiv.classList.add('active');
-            amatDiv.removeAttribute('hidden');
             proDiv.classList.remove('active');
-            proDiv.setAttribute('hidden', '');
           }
         });
       });
-    });
 
-    loadData();
+      loadData();
+    });
   </script>
 </body>
 </html>
