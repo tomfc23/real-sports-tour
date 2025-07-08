@@ -1,299 +1,241 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Solo Tournament Leaderboard</title>
-<style>
-  body {
-    background: #121212;
-    color: #eee;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0; padding: 1rem;
-  }
-  h1 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-  }
-  #leaderboards {
-    display: flex;
-    gap: 2rem;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .board {
-    background: #1e1e1e;
-    border-radius: 8px;
-    box-shadow: 0 0 10px #222;
-    width: 360px;
-    max-width: 100%;
-  }
-  .board h2 {
-    text-align: center;
-    padding: 1rem 0;
-    border-bottom: 1px solid #333;
-    margin: 0;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-  }
-  th, td {
-    padding: 0.4rem 0.8rem;
-    text-align: left;
-  }
-  th {
-    border-bottom: 1px solid #333;
-  }
-  tbody tr:nth-child(even) {
-    background: #222;
-  }
-  tbody tr.cut {
-    color: #777;
-    text-decoration: line-through;
-  }
-  tbody tr.cut:hover {
-    color: #aaa;
-  }
-  .cut-line {
-    border-top: 2px solid #f44336;
-  }
-  .loading {
-    text-align: center;
-    padding: 1rem;
-    font-style: italic;
-    color: #aaa;
-  }
-  .status-active {
-    color: #4caf50;
-    font-weight: 600;
-  }
-  .status-cut {
-    color: #f44336;
-    font-weight: 600;
-  }
-  .upcoming-msg {
-    max-width: 600px;
-    margin: 2rem auto;
-    background: #1e1e1e;
-    border-radius: 8px;
-    padding: 1rem;
-    color: #eee;
-    font-family: monospace;
-    white-space: pre-wrap;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>Real Sports Tour</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 40px;
+    }
+    section {
+      min-width: 320px;
+    }
+    h2 {
+      margin-bottom: 6px;
+      font-weight: normal;
+      border-bottom: 1px solid #444;
+      padding-bottom: 4px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #222;
+    }
+    tr:nth-child(even) {
+      background-color: #1a1a1a;
+    }
+    tr.cutoff-line td {
+      border-top: 2px solid #f00;
+      font-style: italic;
+      text-align: center;
+      color: #f55;
+      background: #220000;
+    }
+    #status {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
+  <h1>Real Sports Tour</h1>
+  <h4>Made by @tomfc and @barry</h4>
+  <div id="status">Loading...</div>
 
-<h1>Solo Tournament Leaderboard</h1>
-<div id="leaderboards" style="display:none;">
-  <div class="board" id="pro-board">
-    <h2>Pro Bracket</h2>
-    <div class="loading">Loading...</div>
-    <table hidden>
-      <thead>
-        <tr><th>Rank</th><th>User</th><th>Total Karma</th><th>Status</th></tr>
-      </thead>
+  <section>
+    <h2>Pro Users — After Day 2</h2>
+    <table id="pro-day2-table" style="display:none;">
+      <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
       <tbody></tbody>
     </table>
-  </div>
-  <div class="board" id="amateur-board">
-    <h2>Amateur Bracket</h2>
-    <div class="loading">Loading...</div>
-    <table hidden>
-      <thead>
-        <tr><th>Rank</th><th>User</th><th>Total Karma</th><th>Status</th></tr>
-      </thead>
+
+    <h2>Pro Users — Final (Day 4)</h2>
+    <table id="pro-day4-table" style="display:none;">
+      <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
       <tbody></tbody>
     </table>
-  </div>
-</div>
+  </section>
 
-<script>
-// CONFIG
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
-const API_BASE = 'https://real.vg/api/user/';
+  <section>
+    <h2>Amateur Users — After Day 2</h2>
+    <table id="amat-day2-table" style="display:none;">
+      <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
+      <tbody></tbody>
+    </table>
 
-// UTILITIES
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+    <h2>Amateur Users — Final (Day 4)</h2>
+    <table id="amat-day4-table" style="display:none;">
+      <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
 
-// Parses CSV string into startDate, cutoffDate, and array of player objects
-function parseCSV(csvText) {
-  const lines = csvText.trim().split('\n');
-  let startDate = null;
-  let cutoffDate = null;
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const PROXY = 'https://api.allorigins.win/raw?url=';
+    const BATCH_SIZE = 5;
+    const RETRY_DELAY = 1000;
+    const BATCH_DELAY = 500;
 
-  const line1 = lines[0].split(',');
-  const line2 = lines[1].split(',');
+    // Tournament time windows (UTC)
+    const tournamentStart = new Date("2025-07-07T07:00:00Z");
+    const day2Cutoff = new Date("2025-07-09T07:00:00Z"); // 2 days after start
+    const tournamentEnd = new Date("2025-07-11T07:00:00Z"); // 4 days after start
 
-  if (line1[0].toLowerCase().includes('start')) {
-    startDate = line1[1].trim();
-    lines.shift();
-  }
-  if (line2[0].toLowerCase().includes('cutoff')) {
-    cutoffDate = line2[1].trim();
-    lines.shift();
-  }
-
-  const headers = lines.shift().split(',').map(h => h.trim());
-  const data = lines.map(line => {
-    const values = line.split(',').map(v => v.trim());
-    const obj = {};
-    headers.forEach((h,i) => obj[h.toLowerCase()] = values[i]);
-    return obj;
-  });
-
-  return { startDate, cutoffDate, data };
-}
-
-// Converts MM/DD/YY or M/D/YY to a Date object (assumes 20YY)
-function parseDateMMDDYY(dateStr) {
-  const parts = dateStr.split('/');
-  if(parts.length !== 3) return null;
-  const month = Number(parts[0]) - 1;
-  const day = Number(parts[1]);
-  let year = Number(parts[2]);
-  if(year < 100) year += 2000;
-  return new Date(year, month, day);
-}
-
-// Formats number with commas
-function fmtNum(num) {
-  return num.toLocaleString();
-}
-
-// Fetch karmaDelta for a single user ID for today
-async function fetchKarmaDelta(userId) {
-  try {
-    const resp = await fetch(`${API_BASE}${userId}`);
-    if (!resp.ok) throw new Error('API error');
-    const json = await resp.json();
-    return Number(json.karmaDelta) || 0;
-  } catch(e) {
-    return 0;
-  }
-}
-
-async function runLeaderboard() {
-  // Load CSV
-  const res = await fetch(CSV_URL);
-  if (!res.ok) {
-    alert('Failed to load tournament CSV');
-    return;
-  }
-  const csvText = await res.text();
-  const { startDate, cutoffDate, data: players } = parseCSV(csvText);
-
-  if (!startDate || !cutoffDate) {
-    alert('Start date or cutoff date not found in CSV');
-    return;
-  }
-
-  const startDateObj = parseDateMMDDYY(startDate);
-  const cutoffDateObj = parseDateMMDDYY(cutoffDate);
-
-  if (!startDateObj || !cutoffDateObj) {
-    alert('Invalid date format for start or cutoff date');
-    return;
-  }
-
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  if (today < startDateObj) {
-    // Tournament upcoming - show message + players
-    document.getElementById('leaderboards').style.display = 'none';
-    document.body.insertAdjacentHTML('beforeend', `
-      <p style="text-align:center; font-size:1.2rem; margin-top:2rem;">
-        Tournament upcoming!<br>
-        Start date: <strong>${startDate}</strong>
-      </p>
-      <div class="upcoming-msg">
-        Current players:<br>
-        ${players.map(p => `@${p['user @']} — ${p.seed} — ${p.status}`).join('\n')}
-      </div>
-    `);
-    return;
-  }
-
-  // Tournament started — show leaderboards container
-  const leaderboardsDiv = document.getElementById('leaderboards');
-  leaderboardsDiv.style.display = 'flex';
-
-  // Filter active players and split by seed
-  const proPlayers = players.filter(p => p.seed.toLowerCase() === 'pro' && p.status.toLowerCase() === 'active');
-  const amateurPlayers = players.filter(p => p.seed.toLowerCase() === 'amatuer' && p.status.toLowerCase() === 'active');
-
-  // Fetch karma with throttling
-  async function fetchAllKarma(players) {
-    const results = [];
-    for (let i = 0; i < players.length; i++) {
-      const p = players[i];
-      const karmaDelta = await fetchKarmaDelta(p['user id']);
-      results.push({ ...p, karmaDelta });
-      if ((i + 1) % 10 === 0) await sleep(350);
+    async function fetchCSV(url) {
+      const res = await axios.get(PROXY + encodeURIComponent(url));
+      return res.data;
     }
-    return results;
-  }
 
-  const [proWithKarma, amateurWithKarma] = await Promise.all([
-    fetchAllKarma(proPlayers),
-    fetchAllKarma(amateurPlayers),
-  ]);
+    function parseCSV(data) {
+      const lines = data.trim().split('\n').slice(1);
+      return lines.map(line => {
+        const parts = line.split(',').map(s => s.trim());
+        if(parts.length < 4) return null;
+        const [user, id, seed, status] = parts;
+        if(!user || !id || !seed) return null;
+        return {
+          user: user.replace(/^@/, ''),
+          id,
+          seed: seed.toLowerCase(),
+          status: status.toLowerCase()
+        };
+      }).filter(Boolean).filter(u => u.status === 'active'); // Only active users
+    }
 
-  // Determine if cutoff passed (today > cutoff date)
-  const cutoffPassed = today > cutoffDateObj;
+    async function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-  // Sort descending by karmaDelta
-  function sortByKarma(a,b) {
-    return b.karmaDelta - a.karmaDelta;
-  }
-
-  proWithKarma.sort(sortByKarma);
-  amateurWithKarma.sort(sortByKarma);
-
-  // Calculate cutoff index (top 50%)
-  const proCutoffIndex = Math.floor(proWithKarma.length / 2);
-  const amateurCutoffIndex = Math.floor(amateurWithKarma.length / 2);
-
-  // Render leaderboard tables
-  function renderBoard(containerId, playersArr, cutoffIndex) {
-    const board = document.getElementById(containerId);
-    const loading = board.querySelector('.loading');
-    const table = board.querySelector('table');
-    const tbody = table.querySelector('tbody');
-
-    loading.hidden = true;
-    table.hidden = false;
-    tbody.innerHTML = '';
-
-    playersArr.forEach((p, i) => {
-      const tr = document.createElement('tr');
-      const isCut = cutoffPassed && i >= cutoffIndex;
-      if(isCut) tr.classList.add('cut');
-      if(i === cutoffIndex && cutoffPassed) {
-        tr.classList.add('cut-line');
+    async function fetchKarmaFeedWithRetry(user, id) {
+      const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
+      try {
+        const res = await axios.get(url);
+        return res.data.items || [];
+      } catch (err) {
+        console.warn(`First fetch failed for ${id}, retrying in 1s...`);
+        await delay(RETRY_DELAY);
+        try {
+          const retryRes = await axios.get(url);
+          return retryRes.data.items || [];
+        } catch (err2) {
+          console.error(`Retry also failed for ${id}`);
+          return null;
+        }
       }
-      tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>@${p['user @']}</td>
-        <td>${fmtNum(p.karmaDelta)}</td>
-        <td class="${isCut ? 'status-cut' : 'status-active'}">${isCut ? 'Cut' : 'Active'}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+    }
 
-  renderBoard('pro-board', proWithKarma, proCutoffIndex);
-  renderBoard('amateur-board', amateurWithKarma, amateurCutoffIndex);
-}
+    function sumKarmaInRange(items, startDate, endDate) {
+      if(!items || !Array.isArray(items)) return 0;
+      return items.reduce((sum, item) => {
+        const createdAt = new Date(item.createdAt);
+        if (createdAt >= startDate && createdAt < endDate) {
+          return sum + (item.amount || 0);
+        }
+        return sum;
+      }, 0);
+    }
 
-runLeaderboard();
-</script>
+    // Sort descending and insert cutoff line at 50% index
+    function renderLeaderboard(users, tbody) {
+      users.sort((a,b) => b.karma - a.karma);
+      tbody.innerHTML = '';
+      const cutoffIndex = Math.floor(users.length / 2);
 
+      users.forEach(({ user, karma }, idx) => {
+        if(idx === cutoffIndex) {
+          // Insert cutoff line row
+          const cutoffRow = document.createElement('tr');
+          cutoffRow.className = 'cutoff-line';
+          const td = document.createElement('td');
+          td.colSpan = 1;
+          td.textContent = '-- Elimination Cutoff --';
+          cutoffRow.appendChild(td);
+          tbody.appendChild(cutoffRow);
+        }
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user} - ${karma}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function loadData() {
+      document.getElementById('status').innerText = 'Fetching CSV...';
+
+      const rawCSV = await fetchCSV(CSV_URL);
+      const users = parseCSV(rawCSV);
+
+      const proUsers = users.filter(u => u.seed === 'pro');
+      const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
+
+      // Arrays to hold user karma for day2 and day4
+      const proResultsDay2 = [];
+      const proResultsDay4 = [];
+      const amatResultsDay2 = [];
+      const amatResultsDay4 = [];
+
+      async function processBatch(userBatch, day2Arr, day4Arr, seedType) {
+        const results = await Promise.all(
+          userBatch.map(async ({ user, id }) => {
+            const items = await fetchKarmaFeedWithRetry(user, id);
+            if(!items) return null;
+            const karmaDay2 = sumKarmaInRange(items, tournamentStart, day2Cutoff);
+            const karmaDay4 = sumKarmaInRange(items, tournamentStart, tournamentEnd);
+            return { user, karmaDay2, karmaDay4 };
+          })
+        );
+
+        results.forEach(res => {
+          if(res) {
+            day2Arr.push({ user: res.user, karma: res.karmaDay2 });
+            day4Arr.push({ user: res.user, karma: res.karmaDay4 });
+          }
+        });
+
+        document.getElementById('status').innerText = `Fetched ${day4Arr.length} ${seedType} users so far...`;
+
+        await delay(BATCH_DELAY);
+      }
+
+      // Process Pro users
+      for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResultsDay2, proResultsDay4, 'Pro');
+      }
+      // Process Amateur users
+      for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResultsDay2, amatResultsDay4, 'Amateur');
+      }
+
+      // Render all tables
+      renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'));
+      renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'));
+      renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'));
+      renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'));
+
+      // Show tables
+      ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
+        document.getElementById(id).style.display = 'table';
+      });
+
+      document.getElementById('status').innerText = 'All data loaded.';
+    }
+
+    loadData();
+  </script>
 </body>
 </html>
