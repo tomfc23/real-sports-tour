@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Karma Delta Scraper 2.0</title>
+  <title>Karma Delta Scraper 2.1</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
     body { font-family: sans-serif; background: #111; color: #fff; padding: 20px; }
@@ -22,7 +22,7 @@
     <tbody></tbody>
   </table>
 
-  <script>
+ <script>
   const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
   const PROXY = 'https://api.allorigins.win/raw?url=';
 
@@ -32,26 +32,29 @@
   }
 
   function parseCSV(data) {
-    const lines = data.trim().split('\n').slice(1); // skip header
-    const users = [];
-
-    for (let line of lines) {
-      const parts = line.split(',').map(s => s.trim());
-      if (parts.length >= 2 && parts[0] && parts[1]) {
-        users.push({ user: parts[0].replace(/^@/, ''), id: parts[1] });
-      }
-    }
-
-    return users;
+    const lines = data.trim().split('\n').slice(1);
+    return lines.map(line => {
+      const [user, id] = line.split(',').map(s => s.trim());
+      return user && id ? { user: user.replace(/^@/, ''), id } : null;
+    }).filter(Boolean);
   }
 
-  async function fetchKarma(userId) {
+  async function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function fetchKarma(userId, retries = 1) {
+    const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`);
     try {
-      const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${userId}/karmafeed`);
       const res = await axios.get(url);
       return res.data?.stats?.karmaDelta ?? 0;
     } catch (err) {
-      console.warn(`Failed for ${userId}:`, err.message);
+      if (retries > 0) {
+        console.warn(`Retrying ${userId} after 1s...`);
+        await delay(1000);
+        return fetchKarma(userId, retries - 1);
+      }
+      console.error(`Failed after retry: ${userId}`);
       return null;
     }
   }
@@ -66,6 +69,7 @@
 
     for (let i = 0; i < users.length; i++) {
       const { user, id } = users[i];
+
       const delta = await fetchKarma(id);
       completed++;
 
@@ -81,7 +85,7 @@
       document.getElementById('status').innerText =
         `Fetched ${completed} of ${users.length} (✅ ${success}, ❌ ${failed})`;
 
-      if (i % 10 === 9) await new Promise(r => setTimeout(r, 350));
+      await delay(350); // Wait between every request regardless of success
     }
 
     document.getElementById('results').style.display = 'table';
@@ -90,5 +94,6 @@
 
   loadData();
 </script>
+
 </body>
 </html>
