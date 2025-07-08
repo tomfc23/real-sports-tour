@@ -479,7 +479,7 @@
     const rawCSV = await fetchCSV(CSV_URL);
     const users = parseCSV(rawCSV);
     const proUsers = users.filter(u => u.seed === 'pro');
-    const amatUsers = users.filter(u => u.seed === 'amatuer');
+    const amatUsers = users.filter(u => u.seed === 'amateur');
 
     const proResultsDay2 = [], proResultsDay4 = [];
     const amatResultsDay2 = [], amatResultsDay4 = [];
