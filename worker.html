@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>KarmaDelta by Pro & Amateur 2.2 </title>
+  <title>KarmaDelta by Pro & Amateur 2.3 </title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
     body {
@@ -66,7 +66,7 @@
     const BASE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
     const BATCH_SIZE = 5;
     const RETRY_DELAY = 1000;
-    const BATCH_DELAY = 200; // 🔁 Reduced from 500ms to 200ms
+    const BATCH_DELAY = 10; // 🔁 Reduced from 500ms to 200ms
 
     function cacheBust(url) {
       const ts = `_t=${Date.now()}`;
