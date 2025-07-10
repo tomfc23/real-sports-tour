@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>KarmaDelta by Pro & Amateur 2.0</title>
+  <title>KarmaDelta by Pro & Amateur 2.1</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
     body {
@@ -62,14 +62,20 @@
   </div>
 
   <script>
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const BASE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
     const PROXY = 'https://api.allorigins.win/raw?url=';
     const BATCH_SIZE = 5;
     const RETRY_DELAY = 1000;
     const BATCH_DELAY = 500;
 
+    function cacheBust(url) {
+      const ts = `_t=${Date.now()}`;
+      return url.includes('?') ? `${url}&${ts}` : `${url}?${ts}`;
+    }
+
     async function fetchCSV(url) {
-      const res = await axios.get(PROXY + encodeURIComponent(url));
+      const fullUrl = PROXY + encodeURIComponent(cacheBust(url));
+      const res = await axios.get(fullUrl);
       return res.data;
     }
 
@@ -86,7 +92,7 @@
           seed: seed.toLowerCase(),
           status: status.toLowerCase()
         };
-      }).filter(Boolean).filter(u => u.status === 'active'); // Only active users
+      }).filter(Boolean).filter(u => u.status === 'active');
     }
 
     async function delay(ms) {
@@ -94,15 +100,16 @@
     }
 
     async function fetchKarmaWithRetry(user, id) {
-      const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
+      const url = cacheBust(`https://api.real.vg/user/${id}/karmafeed`);
+      const fullUrl = PROXY + encodeURIComponent(url);
       try {
-        const res = await axios.get(url);
+        const res = await axios.get(fullUrl);
         return res.data?.stats?.karmaDelta ?? 0;
       } catch (err) {
         console.warn(`First fetch failed for ${id}, retrying in 1s...`);
         await delay(RETRY_DELAY);
         try {
-          const retryRes = await axios.get(url);
+          const retryRes = await axios.get(fullUrl);
           return retryRes.data?.stats?.karmaDelta ?? 0;
         } catch (err2) {
           console.error(`Retry also failed for ${id}`);
@@ -111,18 +118,13 @@
       }
     }
 
-    // Sort descending and insert cutoff line
     function renderLeaderboard(users, tbody) {
-      // Sort descending by karmaDelta
-      users.sort((a,b) => b.karmaDelta - a.karmaDelta);
-
+      users.sort((a, b) => b.karmaDelta - a.karmaDelta);
       tbody.innerHTML = '';
-
       const cutoffIndex = Math.floor(users.length / 2);
 
       users.forEach(({ user, karmaDelta }, idx) => {
-        if(idx === cutoffIndex) {
-          // Insert cutoff line row
+        if (idx === cutoffIndex) {
           const cutoffRow = document.createElement('tr');
           cutoffRow.className = 'cutoff-line';
           const td = document.createElement('td');
@@ -141,11 +143,11 @@
       document.getElementById('pro-status').innerText = 'Fetching CSV...';
       document.getElementById('amat-status').innerText = 'Fetching CSV...';
 
-      const rawCSV = await fetchCSV(CSV_URL);
+      const rawCSV = await fetchCSV(BASE_CSV_URL);
       const users = parseCSV(rawCSV);
 
       const proUsers = users.filter(u => u.seed === 'pro');
-      const amatUsers = users.filter(u => u.seed === 'amatuer'); // spelling as in CSV
+      const amatUsers = users.filter(u => u.seed === 'amatuer');
 
       const proResults = [];
       const amatResults = [];
@@ -163,19 +165,16 @@
           }
         });
 
-        if(seedType === 'pro') {
-          document.getElementById('pro-status').innerText = `Fetched ${resultArray.length} of ${proUsers.length}`;
-        } else {
-          document.getElementById('amat-status').innerText = `Fetched ${resultArray.length} of ${amatUsers.length}`;
-        }
-
+        const statusId = seedType === 'pro' ? 'pro-status' : 'amat-status';
+        const total = seedType === 'pro' ? proUsers.length : amatUsers.length;
+        document.getElementById(statusId).innerText = `Fetched ${resultArray.length} of ${total}`;
         await delay(BATCH_DELAY);
       }
 
-      for(let i=0; i < proUsers.length; i += BATCH_SIZE) {
+      for (let i = 0; i < proUsers.length; i += BATCH_SIZE) {
         await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResults, 'pro');
       }
-      for(let i=0; i < amatUsers.length; i += BATCH_SIZE) {
+      for (let i = 0; i < amatUsers.length; i += BATCH_SIZE) {
         await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResults, 'amatuer');
       }
 
