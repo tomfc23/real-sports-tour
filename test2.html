@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Karma Delta Scraper 2.2</title>
+  <title>Karma Delta Scraper 2.3</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <style>
     body { font-family: sans-serif; background: #111; color: #fff; padding: 20px; }
@@ -23,14 +23,20 @@
   </table>
 
 <script>
-  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+  const CSV_BASE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
   const PROXY = 'https://api.allorigins.win/raw?url=';
   const BATCH_SIZE = 5;
   const RETRY_DELAY = 1000;
   const BATCH_DELAY = 500;
 
+  function cacheBust(url) {
+    const bust = `_t=${Date.now()}`;
+    return url.includes('?') ? `${url}&${bust}` : `${url}?${bust}`;
+  }
+
   async function fetchCSV(url) {
-    const res = await axios.get(PROXY + encodeURIComponent(url));
+    const fullUrl = PROXY + encodeURIComponent(cacheBust(url));
+    const res = await axios.get(fullUrl);
     return res.data;
   }
 
@@ -47,15 +53,16 @@
   }
 
   async function fetchKarmaWithRetry(user, id) {
-    const url = PROXY + encodeURIComponent(`https://api.real.vg/user/${id}/karmafeed`);
+    const url = cacheBust(`https://api.real.vg/user/${id}/karmafeed`);
+    const fullUrl = PROXY + encodeURIComponent(url);
     try {
-      const res = await axios.get(url);
+      const res = await axios.get(fullUrl);
       return res.data?.stats?.karmaDelta ?? 0;
     } catch (err) {
       console.warn(`First fetch failed for ${id}, retrying in 1s...`);
       await delay(RETRY_DELAY);
       try {
-        const retryRes = await axios.get(url);
+        const retryRes = await axios.get(fullUrl);
         return retryRes.data?.stats?.karmaDelta ?? 0;
       } catch (err2) {
         console.error(`Retry also failed for ${id}`);
@@ -66,7 +73,7 @@
 
   async function loadData() {
     document.getElementById('status').innerText = 'Fetching CSV...';
-    const rawCSV = await fetchCSV(CSV_URL);
+    const rawCSV = await fetchCSV(CSV_BASE_URL);
     const users = parseCSV(rawCSV);
     const tbody = document.querySelector('#results tbody');
 
@@ -104,8 +111,6 @@
 
   loadData();
 </script>
-
-
 
 </body>
 </html>
