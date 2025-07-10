@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>KarmaDelta by Pro & Amateur 2.1</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+      display: flex;
+      gap: 40px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 300px;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #222;
+    }
+    tr:nth-child(even) {
+      background-color: #1a1a1a;
+    }
+    tr.cutoff-line td {
+      border-top: 2px solid #f00;
+      font-style: italic;
+      text-align: center;
+      color: #f55;
+      background: #220000;
+    }
+    h2 {
+      margin-bottom: 8px;
+      font-weight: normal;
+      border-bottom: 1px solid #444;
+      padding-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <h2>Pro Users</h2>
+    <div id="pro-status">Loading...</div>
+    <table id="pro-table" style="display:none;">
+      <thead><tr><th>User - KarmaDelta</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div>
+    <h2>Amateur Users</h2>
+    <div id="amat-status">Loading...</div>
+    <table id="amat-table" style="display:none;">
+      <thead><tr><th>User - KarmaDelta</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const WORKER_PROXY = 'https://rst-worker.tommyek600.workers.dev/';
+    const BASE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const BATCH_SIZE = 5;
+    const RETRY_DELAY = 1000;
+    const BATCH_DELAY = 500;
+
+    function cacheBust(url) {
+      const ts = `_t=${Date.now()}`;
+      return url.includes('?') ? `${url}&${ts}` : `${url}?${ts}`;
+    }
+
+    async function fetchCSV(url) {
+      const proxied = WORKER_PROXY + '?url=' + encodeURIComponent(cacheBust(url));
+      const res = await axios.get(proxied);
+      return res.data;
+    }
+
+    function parseCSV(data) {
+      const lines = data.trim().split('\n').slice(1);
+      return lines.map(line => {
+        const parts = line.split(',').map(s => s.trim());
+        if (parts.length < 4) return null;
+        const [user, id, seed, status] = parts;
+        if (!user || !id || !seed) return null;
+        return {
+          user: user.replace(/^@/, ''),
+          id,
+          seed: seed.toLowerCase(),
+          status: status.toLowerCase()
+        };
+      }).filter(Boolean).filter(u => u.status === 'active');
+    }
+
+    async function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function fetchKarmaWithRetry(user, id) {
+      const url = cacheBust(`https://api.real.vg/user/${id}/karmafeed`);
+      const fullUrl = WORKER_PROXY + '?url=' + encodeURIComponent(url);
+      try {
+        const res = await axios.get(fullUrl);
+        return res.data?.stats?.karmaDelta ?? 0;
+      } catch (err) {
+        console.warn(`First fetch failed for ${id}, retrying in 1s...`);
+        await delay(RETRY_DELAY);
+        try {
+          const retryRes = await axios.get(fullUrl);
+          return retryRes.data?.stats?.karmaDelta ?? 0;
+        } catch (err2) {
+          console.error(`Retry also failed for ${id}`);
+          return null;
+        }
+      }
+    }
+
+    function renderLeaderboard(users, tbody) {
+      users.sort((a, b) => b.karmaDelta - a.karmaDelta);
+      tbody.innerHTML = '';
+      const cutoffIndex = Math.floor(users.length / 2);
+
+      users.forEach(({ user, karmaDelta }, idx) => {
+        if (idx === cutoffIndex) {
+          const cutoffRow = document.createElement('tr');
+          cutoffRow.className = 'cutoff-line';
+          const td = document.createElement('td');
+          td.colSpan = 1;
+          td.textContent = '-- Elimination Cutoff --';
+          cutoffRow.appendChild(td);
+          tbody.appendChild(cutoffRow);
+        }
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>@${user} - ${karmaDelta}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function loadData() {
+      document.getElementById('pro-status').innerText = 'Fetching CSV...';
+      document.getElementById('amat-status').innerText = 'Fetching CSV...';
+
+      const rawCSV = await fetchCSV(BASE_CSV_URL);
+      const users = parseCSV(rawCSV);
+
+      const proUsers = users.filter(u => u.seed === 'pro');
+      const amatUsers = users.filter(u => u.seed === 'amatuer');
+
+      const proResults = [];
+      const amatResults = [];
+
+      async function processBatch(userBatch, resultArray, seedType) {
+        const results = await Promise.all(
+          userBatch.map(({ user, id }) =>
+            fetchKarmaWithRetry(user, id).then(delta => ({ user, karmaDelta: delta }))
+          )
+        );
+
+        results.forEach(({ user, karmaDelta }) => {
+          if (karmaDelta !== null) {
+            resultArray.push({ user, karmaDelta });
+          }
+        });
+
+        const statusId = seedType === 'pro' ? 'pro-status' : 'amat-status';
+        const total = seedType === 'pro' ? proUsers.length : amatUsers.length;
+        document.getElementById(statusId).innerText = `Fetched ${resultArray.length} of ${total}`;
+        await delay(BATCH_DELAY);
+      }
+
+      for (let i = 0; i < proUsers.length; i += BATCH_SIZE) {
+        await processBatch(proUsers.slice(i, i + BATCH_SIZE), proResults, 'pro');
+      }
+      for (let i = 0; i < amatUsers.length; i += BATCH_SIZE) {
+        await processBatch(amatUsers.slice(i, i + BATCH_SIZE), amatResults, 'amatuer');
+      }
+
+      renderLeaderboard(proResults, document.querySelector('#pro-table tbody'));
+      renderLeaderboard(amatResults, document.querySelector('#amat-table tbody'));
+
+      document.getElementById('pro-table').style.display = 'table';
+      document.getElementById('amat-table').style.display = 'table';
+
+      document.getElementById('pro-status').innerText += ' - Done.';
+      document.getElementById('amat-status').innerText += ' - Done.';
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
