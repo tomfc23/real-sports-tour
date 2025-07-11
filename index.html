@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Real Sports Tour - Live</title>
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <title>Real Sports Tour - Live 2</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js?v=1.0.0"></script>
   <style>
-    * {
+   * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
@@ -288,95 +288,154 @@
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>Real Sports Tour - Live</h1>
-      <p>Made by @tomfc and @barry</p>
-      <p class="subtitle">By Pro & Amateur Divisions</p>
-    </header>
+  <header>
+    <h1>Real Sports Tour - Live</h1>
+    <p>Made by @tomfc and @barry</p>
+    <p class="subtitle">By Pro & Amateur Divisions</p>
+  </header>
 
-    <div class="tabs" role="tablist">
-      <button id="tab-pro" class="tab-button active" aria-selected="true" role="tab" aria-controls="pro-division" tabindex="0">Pro Division</button>
-      <button id="tab-amat" class="tab-button" aria-selected="false" role="tab" aria-controls="amat-division" tabindex="-1">Amateur Division</button>
-    </div>
-
-    <div id="status" class="status-loading">Loading tournament data...</div>
-
-    <!-- Pro Division -->
-    <section id="pro-division" class="division-section active" role="tabpanel" aria-labelledby="tab-pro" tabindex="0">
-      <div class="leaderboard-section pro-section">
-        <h2 class="section-title">🏆 Pro Division</h2>
-
-        <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Mid-Tournament</span>
-            <span class="phase-badge">Day 2</span>
-          </div>
-          <table id="pro-day2-table" class="hidden" aria-label="Pro Division Mid-Tournament Leaderboard">
-            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Final Results</span>
-            <span class="phase-badge">Day 4</span>
-          </div>
-          <table id="pro-day4-table" class="hidden" aria-label="Pro Division Final Leaderboard">
-            <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- Amateur Division -->
-    <section id="amat-division" class="division-section" role="tabpanel" aria-labelledby="tab-amat" tabindex="0">
-      <div class="leaderboard-section amateur-section">
-        <h2 class="section-title">🥇 Amateur Division</h2>
-
-        <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Mid-Tournament</span>
-            <span class="phase-badge">Day 2</span>
-          </div>
-          <table id="amat-day2-table" class="hidden" aria-label="Amateur Division Mid-Tournament Leaderboard">
-            <thead><tr><th>User - Karma (Day 1+2)</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div class="tournament-phase">
-          <div class="phase-header">
-            <span>Final Results</span>
-            <span class="phase-badge">Day 4</span>
-          </div>
-          <table id="amat-day4-table" class="hidden" aria-label="Amateur Division Final Leaderboard">
-            <thead><tr><th>User - Karma (Day 1–4)</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+  <div class="tabs" role="tablist">
+    <button
+      id="tab-pro"
+      class="tab-button active"
+      aria-selected="true"
+      role="tab"
+      aria-controls="pro-division"
+      tabindex="0"
+    >
+      Pro Division
+    </button>
+    <button
+      id="tab-amat"
+      class="tab-button"
+      aria-selected="false"
+      role="tab"
+      aria-controls="amat-division"
+      tabindex="-1"
+    >
+      Amateur Division
+    </button>
   </div>
 
+  <div id="status" class="status-loading">Loading tournament data...</div>
+
+  <!-- Pro Division -->
+  <section
+    id="pro-division"
+    class="division-section active"
+    role="tabpanel"
+    aria-labelledby="tab-pro"
+    tabindex="0"
+  >
+    <div class="leaderboard-section pro-section">
+      <h2 class="section-title">🏆 Pro Division</h2>
+
+      <div class="tournament-phase">
+        <div class="phase-header">
+          <span>Mid-Tournament</span>
+          <span class="phase-badge">Day 2</span>
+        </div>
+        <table
+          id="pro-day2-table"
+          class="hidden"
+          aria-label="Pro Division Mid-Tournament Leaderboard"
+        >
+          <thead>
+            <tr>
+              <th>User - Karma (Day 1+2)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="tournament-phase">
+        <div class="phase-header">
+          <span>Final Results</span>
+          <span class="phase-badge">Day 4</span>
+        </div>
+        <table
+          id="pro-day4-table"
+          class="hidden"
+          aria-label="Pro Division Final Leaderboard"
+        >
+          <thead>
+            <tr>
+              <th>User - Karma (Day 1–4)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Amateur Division -->
+  <section
+    id="amat-division"
+    class="division-section"
+    role="tabpanel"
+    aria-labelledby="tab-amat"
+    tabindex="0"
+  >
+    <div class="leaderboard-section amateur-section">
+      <h2 class="section-title">🥇 Amateur Division</h2>
+
+      <div class="tournament-phase">
+        <div class="phase-header">
+          <span>Mid-Tournament</span>
+          <span class="phase-badge">Day 2</span>
+        </div>
+        <table
+          id="amat-day2-table"
+          class="hidden"
+          aria-label="Amateur Division Mid-Tournament Leaderboard"
+        >
+          <thead>
+            <tr>
+              <th>User - Karma (Day 1+2)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="tournament-phase">
+        <div class="phase-header">
+          <span>Final Results</span>
+          <span class="phase-badge">Day 4</span>
+        </div>
+        <table
+          id="amat-day4-table"
+          class="hidden"
+          aria-label="Amateur Division Final Leaderboard"
+        >
+          <thead>
+            <tr>
+              <th>User - Karma (Day 1–4)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
   <script>
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const TIMESTAMP = Date.now(); // Cache buster timestamp
+    const CSV_URL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv&t=${TIMESTAMP}`;
     const WORKER_PROXY = 'https://rst-worker.tommyek600.workers.dev/?url=';
 
-    // Tournament Dates (UTC)
     const tournamentStart = new Date("2025-07-10T07:00:00Z");
     const day2Cutoff = new Date("2025-07-12T07:00:00Z");
     const tournamentEnd = new Date("2025-07-14T07:00:00Z");
 
-    // Helper: fetch via your Worker Proxy and return response data text
     async function fetchViaWorker(url) {
       const encodedUrl = encodeURIComponent(url);
       const res = await axios.get(WORKER_PROXY + encodedUrl);
       return res.data;
     }
 
-    // Parse CSV and filter active users only
     function parseCSV(data) {
       const lines = data.trim().split('\n').slice(1);
       return lines.map(line => {
@@ -391,7 +450,6 @@
       }).filter(Boolean).filter(u => u.status === 'active');
     }
 
-    // Sum karma from items in the date range
     function sumKarmaInRange(items, start, end) {
       return items.reduce((sum, item) => {
         const createdAt = new Date(item.createdAt);
@@ -402,22 +460,18 @@
       }, 0);
     }
 
-    // Calculate median of karma array
     function calculateMedian(users) {
       if (users.length === 0) return 0;
       const scores = users.map(u => u.karma).sort((a, b) => a - b);
       const mid = Math.floor(scores.length / 2);
-      if (scores.length % 2 === 0) {
-        return (scores[mid - 1] + scores[mid]) / 2;
-      }
-      return scores[mid];
+      return scores.length % 2 === 0
+        ? (scores[mid - 1] + scores[mid]) / 2
+        : scores[mid];
     }
 
-    // Render leaderboard with median cutoff line
     function renderLeaderboard(users, tbody, median) {
       users.sort((a, b) => b.karma - a.karma);
       tbody.innerHTML = '';
-
       const survivors = users.filter(u => u.karma >= median);
       const eliminated = users.filter(u => u.karma < median);
 
@@ -441,7 +495,6 @@
       });
     }
 
-    // Show tables according to current date
     function updateTableVisibilityByDate() {
       const now = new Date();
       const beforeCutoff = now < day2Cutoff;
@@ -456,15 +509,13 @@
       });
     }
 
-    // Fetch karmafeed JSON for user id with retry (2 attempts)
     async function fetchKarmaFeedWithRetry(user, id) {
-      const url = `https://api.real.vg/user/${id}/karmafeed`;
+      const url = `https://api.real.vg/user/${id}/karmafeed?t=${TIMESTAMP}`;
       try {
         const data = await fetchViaWorker(url);
         const json = typeof data === 'string' ? JSON.parse(data) : data;
         return json.items || [];
       } catch {
-        // Retry once
         try {
           const data = await fetchViaWorker(url);
           const json = typeof data === 'string' ? JSON.parse(data) : data;
@@ -475,28 +526,23 @@
       }
     }
 
-    // Main load data function
     async function loadData() {
       const statusEl = document.getElementById('status');
       statusEl.innerHTML = '<span class="loading-spinner"></span>Fetching tournament data...';
       statusEl.classList.add('status-loading');
 
       try {
-        // Fetch and parse CSV
         const rawCSV = await fetchViaWorker(CSV_URL);
         const users = parseCSV(rawCSV);
 
-        // Filter by seed
         const proUsers = users.filter(u => u.seed === 'pro');
-        const amatUsers = users.filter(u => u.seed === 'amatuer' || u.seed === 'amateur'); // accept both spellings
+        const amatUsers = users.filter(u => u.seed === 'amatuer' || u.seed === 'amateur');
 
-        // Containers for karma sums
         const proResultsDay2 = [];
         const proResultsDay4 = [];
         const amatResultsDay2 = [];
         const amatResultsDay4 = [];
 
-        // Process all users concurrently without delay
         async function processUsers(userList, day2Arr, day4Arr) {
           const promises = userList.map(async ({ user, id }) => {
             const items = await fetchKarmaFeedWithRetry(user, id);
@@ -521,19 +567,16 @@
         await processUsers(proUsers, proResultsDay2, proResultsDay4);
         await processUsers(amatUsers, amatResultsDay2, amatResultsDay4);
 
-        // Calculate medians
         const proMedianDay2 = calculateMedian(proResultsDay2);
         const proMedianDay4 = calculateMedian(proResultsDay4);
         const amatMedianDay2 = calculateMedian(amatResultsDay2);
         const amatMedianDay4 = calculateMedian(amatResultsDay4);
 
-        // Render tables
         renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'), proMedianDay2);
         renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'), proMedianDay4);
         renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'), amatMedianDay2);
         renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'), amatMedianDay4);
 
-        // Show tables now
         ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
           document.getElementById(id).classList.remove('hidden');
         });
@@ -549,7 +592,6 @@
       }
     }
 
-    // Tabs UI behavior
     document.addEventListener('DOMContentLoaded', () => {
       const tabs = document.querySelectorAll('.tab-button');
       const proDiv = document.getElementById('pro-division');
