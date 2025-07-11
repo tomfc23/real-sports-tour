@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Real Sports Tour - Live 5</title>
+  <title>Real Sports Tour - Live 4</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js?v=1.0.0"></script>
   <style>
-    * {
+ * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
@@ -423,19 +423,31 @@
   </div>
 
   <script>
-    const TIMESTAMP = Date.now();
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv&t=${TIMESTAMP}`;
-
+    // Tournament Dates
     const tournamentStart = new Date("2025-07-10T07:00:00Z");
     const day2Cutoff = new Date("2025-07-12T07:00:00Z");
     const tournamentEnd = new Date("2025-07-14T07:00:00Z");
 
-    // Fetch the public CSV directly without using worker proxy
-    async function fetchCSVDirect(url) {
-      const res = await axios.get(url);
+    // Get a fresh CSV URL with timestamp query to bust cache
+    function getCSVUrl() {
+      return `https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv&t=${Date.now()}`;
+    }
+
+    // Fetch CSV via Worker Proxy with no-cache headers
+    async function fetchViaWorker(url) {
+      const encodedUrl = encodeURIComponent(url);
+      const WORKER_PROXY = 'https://rst-worker.tommyek600.workers.dev/?url=';
+      const res = await axios.get(WORKER_PROXY + encodedUrl, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       return res.data;
     }
 
+    // CSV Parser
     function parseCSV(data) {
       const lines = data.trim().split('\n').slice(1);
       return lines.map(line => {
@@ -450,6 +462,7 @@
       }).filter(Boolean).filter(u => u.status === 'active');
     }
 
+    // Sum karma items within a date range
     function sumKarmaInRange(items, start, end) {
       return items.reduce((sum, item) => {
         const createdAt = new Date(item.createdAt);
@@ -460,6 +473,7 @@
       }, 0);
     }
 
+    // Median calculator
     function calculateMedian(users) {
       if (users.length === 0) return 0;
       const scores = users.map(u => u.karma).sort((a, b) => a - b);
@@ -469,6 +483,7 @@
         : scores[mid];
     }
 
+    // Render leaderboard table with cutoff line
     function renderLeaderboard(users, tbody, median) {
       users.sort((a, b) => b.karma - a.karma);
       tbody.innerHTML = '';
@@ -495,6 +510,7 @@
       });
     }
 
+    // Show/hide tables based on current date
     function updateTableVisibilityByDate() {
       const now = new Date();
       const beforeCutoff = now < day2Cutoff;
@@ -509,14 +525,27 @@
       });
     }
 
+    // Fetch karma feed for user with retry on failure
     async function fetchKarmaFeedWithRetry(user, id) {
       const url = `https://rst-worker.tommyek600.workers.dev/?userId=${encodeURIComponent(id)}`;
       try {
-        const res = await axios.get(url);
+        const res = await axios.get(url, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         return res.data.items || [];
       } catch {
         try {
-          const res = await axios.get(url);
+          const res = await axios.get(url, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
           return res.data.items || [];
         } catch {
           return null;
@@ -524,14 +553,15 @@
       }
     }
 
+    // Main function to load and process all data
     async function loadData() {
       const statusEl = document.getElementById('status');
       statusEl.innerHTML = '<span class="loading-spinner"></span>Fetching tournament data...';
       statusEl.classList.add('status-loading');
 
       try {
-        // FETCH CSV DIRECTLY
-        const rawCSV = await fetchCSVDirect(CSV_URL);
+        const CSV_URL = getCSVUrl();
+        const rawCSV = await fetchViaWorker(CSV_URL);
         const users = parseCSV(rawCSV);
 
         const proUsers = users.filter(u => u.seed === 'pro');
@@ -542,83 +572,84 @@
         const amatResultsDay2 = [];
         const amatResultsDay4 = [];
 
-        async function processUsers(userList, resultsDay2, resultsDay4) {
-          for (const user of userList) {
-            const karmaItems = await fetchKarmaFeedWithRetry(user.user, user.id);
-            if (!karmaItems) continue;
+        async function processUsers(userList, day2Arr, day4Arr) {
+          const promises = userList.map(async ({ user, id }) => {
+            const items = await fetchKarmaFeedWithRetry(user, id);
+            if (!items) return null;
 
-            const karmaDay2 = sumKarmaInRange(karmaItems, tournamentStart, day2Cutoff);
-            const karmaDay4 = sumKarmaInRange(karmaItems, tournamentStart, tournamentEnd);
+            return {
+              user,
+              karmaDay2: sumKarmaInRange(items, tournamentStart, day2Cutoff),
+              karmaDay4: sumKarmaInRange(items, tournamentStart, tournamentEnd)
+            };
+          });
 
-            resultsDay2.push({ user: user.user, karma: karmaDay2 });
-            resultsDay4.push({ user: user.user, karma: karmaDay4 });
-          }
+          const results = await Promise.all(promises);
+          results.forEach(r => {
+            if (r) {
+              day2Arr.push({ user: r.user, karma: r.karmaDay2 });
+              day4Arr.push({ user: r.user, karma: r.karmaDay4 });
+            }
+          });
         }
 
-        await Promise.all([
-          processUsers(proUsers, proResultsDay2, proResultsDay4),
-          processUsers(amatUsers, amatResultsDay2, amatResultsDay4),
-        ]);
+        await processUsers(proUsers, proResultsDay2, proResultsDay4);
+        await processUsers(amatUsers, amatResultsDay2, amatResultsDay4);
 
-        // Calculate median cutoffs for Day 2 and Day 4 separately
         const proMedianDay2 = calculateMedian(proResultsDay2);
         const proMedianDay4 = calculateMedian(proResultsDay4);
         const amatMedianDay2 = calculateMedian(amatResultsDay2);
         const amatMedianDay4 = calculateMedian(amatResultsDay4);
 
-        // Render Pro tables
         renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'), proMedianDay2);
         renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'), proMedianDay4);
-
-        // Render Amateur tables
         renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'), amatMedianDay2);
         renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'), amatMedianDay4);
 
-        // Show tables
         ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
           document.getElementById(id).classList.remove('hidden');
         });
 
-        // Update table visibility based on date
         updateTableVisibilityByDate();
 
-        statusEl.textContent = 'Tournament data loaded successfully.';
+        statusEl.innerHTML = '✅ Tournament data loaded successfully!';
         statusEl.classList.remove('status-loading');
-      } catch (e) {
-        statusEl.textContent = 'Error loading tournament data. Please refresh.';
+      } catch (error) {
+        statusEl.textContent = '⚠️ Failed to load data, please try again later.';
         statusEl.classList.remove('status-loading');
-        console.error(e);
+        console.error(error);
       }
     }
 
-    // Tab switching
-    document.querySelectorAll('.tab-button').forEach(button => {
-      button.addEventListener('click', () => {
-        document.querySelectorAll('.tab-button').forEach(btn => {
-          btn.classList.remove('active');
-          btn.setAttribute('aria-selected', 'false');
-          btn.setAttribute('tabindex', '-1');
-        });
-        button.classList.add('active');
-        button.setAttribute('aria-selected', 'true');
-        button.setAttribute('tabindex', '0');
+    // Tab switching logic
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabs = document.querySelectorAll('.tab-button');
+      const proDiv = document.getElementById('pro-division');
+      const amatDiv = document.getElementById('amat-division');
 
-        const target = button.getAttribute('aria-controls');
-        document.querySelectorAll('.division-section').forEach(section => {
-          section.classList.remove('active');
-          section.setAttribute('hidden', '');
-          section.setAttribute('aria-hidden', 'true');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+            t.setAttribute('tabindex', '-1');
+          });
+          tab.classList.add('active');
+          tab.setAttribute('aria-selected', 'true');
+          tab.setAttribute('tabindex', '0');
+
+          if (tab.id === 'tab-pro') {
+            proDiv.classList.add('active');
+            amatDiv.classList.remove('active');
+          } else {
+            amatDiv.classList.add('active');
+            proDiv.classList.remove('active');
+          }
         });
-        const targetSection = document.getElementById(target);
-        if (targetSection) {
-          targetSection.classList.add('active');
-          targetSection.removeAttribute('hidden');
-          targetSection.setAttribute('aria-hidden', 'false');
-        }
       });
-    });
 
-    loadData();
+      loadData();
+    });
   </script>
 </body>
 </html>
