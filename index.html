@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Real Sports Tour - Live 4</title>
+  <title>Real Sports Tour - Live 5</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js?v=1.0.0"></script>
   <style>
     * {
@@ -430,10 +430,9 @@
     const day2Cutoff = new Date("2025-07-12T07:00:00Z");
     const tournamentEnd = new Date("2025-07-14T07:00:00Z");
 
-    async function fetchViaWorker(url) {
-      const encodedUrl = encodeURIComponent(url);
-      const WORKER_PROXY = 'https://rst-worker.tommyek600.workers.dev/?url=';
-      const res = await axios.get(WORKER_PROXY + encodedUrl);
+    // Fetch the public CSV directly without using worker proxy
+    async function fetchCSVDirect(url) {
+      const res = await axios.get(url);
       return res.data;
     }
 
@@ -531,7 +530,8 @@
       statusEl.classList.add('status-loading');
 
       try {
-        const rawCSV = await fetchViaWorker(CSV_URL);
+        // FETCH CSV DIRECTLY
+        const rawCSV = await fetchCSVDirect(CSV_URL);
         const users = parseCSV(rawCSV);
 
         const proUsers = users.filter(u => u.seed === 'pro');
@@ -542,83 +542,83 @@
         const amatResultsDay2 = [];
         const amatResultsDay4 = [];
 
-        async function processUsers(userList, day2Arr, day4Arr) {
-          const promises = userList.map(async ({ user, id }) => {
-            const items = await fetchKarmaFeedWithRetry(user, id);
-            if (!items) return null;
+        async function processUsers(userList, resultsDay2, resultsDay4) {
+          for (const user of userList) {
+            const karmaItems = await fetchKarmaFeedWithRetry(user.user, user.id);
+            if (!karmaItems) continue;
 
-            return {
-              user,
-              karmaDay2: sumKarmaInRange(items, tournamentStart, day2Cutoff),
-              karmaDay4: sumKarmaInRange(items, tournamentStart, tournamentEnd)
-            };
-          });
+            const karmaDay2 = sumKarmaInRange(karmaItems, tournamentStart, day2Cutoff);
+            const karmaDay4 = sumKarmaInRange(karmaItems, tournamentStart, tournamentEnd);
 
-          const results = await Promise.all(promises);
-          results.forEach(r => {
-            if (r) {
-              day2Arr.push({ user: r.user, karma: r.karmaDay2 });
-              day4Arr.push({ user: r.user, karma: r.karmaDay4 });
-            }
-          });
+            resultsDay2.push({ user: user.user, karma: karmaDay2 });
+            resultsDay4.push({ user: user.user, karma: karmaDay4 });
+          }
         }
 
-        await processUsers(proUsers, proResultsDay2, proResultsDay4);
-        await processUsers(amatUsers, amatResultsDay2, amatResultsDay4);
+        await Promise.all([
+          processUsers(proUsers, proResultsDay2, proResultsDay4),
+          processUsers(amatUsers, amatResultsDay2, amatResultsDay4),
+        ]);
 
+        // Calculate median cutoffs for Day 2 and Day 4 separately
         const proMedianDay2 = calculateMedian(proResultsDay2);
         const proMedianDay4 = calculateMedian(proResultsDay4);
         const amatMedianDay2 = calculateMedian(amatResultsDay2);
         const amatMedianDay4 = calculateMedian(amatResultsDay4);
 
+        // Render Pro tables
         renderLeaderboard(proResultsDay2, document.querySelector('#pro-day2-table tbody'), proMedianDay2);
         renderLeaderboard(proResultsDay4, document.querySelector('#pro-day4-table tbody'), proMedianDay4);
+
+        // Render Amateur tables
         renderLeaderboard(amatResultsDay2, document.querySelector('#amat-day2-table tbody'), amatMedianDay2);
         renderLeaderboard(amatResultsDay4, document.querySelector('#amat-day4-table tbody'), amatMedianDay4);
 
+        // Show tables
         ['pro-day2-table', 'pro-day4-table', 'amat-day2-table', 'amat-day4-table'].forEach(id => {
           document.getElementById(id).classList.remove('hidden');
         });
 
+        // Update table visibility based on date
         updateTableVisibilityByDate();
 
-        statusEl.innerHTML = '✅ Tournament data loaded successfully!';
+        statusEl.textContent = 'Tournament data loaded successfully.';
         statusEl.classList.remove('status-loading');
-      } catch (error) {
-        statusEl.textContent = '⚠️ Failed to load data, please try again later.';
+      } catch (e) {
+        statusEl.textContent = 'Error loading tournament data. Please refresh.';
         statusEl.classList.remove('status-loading');
-        console.error(error);
+        console.error(e);
       }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const tabs = document.querySelectorAll('.tab-button');
-      const proDiv = document.getElementById('pro-division');
-      const amatDiv = document.getElementById('amat-division');
-
-      tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          tabs.forEach(t => {
-            t.classList.remove('active');
-            t.setAttribute('aria-selected', 'false');
-            t.setAttribute('tabindex', '-1');
-          });
-          tab.classList.add('active');
-          tab.setAttribute('aria-selected', 'true');
-          tab.setAttribute('tabindex', '0');
-
-          if (tab.id === 'tab-pro') {
-            proDiv.classList.add('active');
-            amatDiv.classList.remove('active');
-          } else {
-            amatDiv.classList.add('active');
-            proDiv.classList.remove('active');
-          }
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(btn => {
+          btn.classList.remove('active');
+          btn.setAttribute('aria-selected', 'false');
+          btn.setAttribute('tabindex', '-1');
         });
-      });
+        button.classList.add('active');
+        button.setAttribute('aria-selected', 'true');
+        button.setAttribute('tabindex', '0');
 
-      loadData();
+        const target = button.getAttribute('aria-controls');
+        document.querySelectorAll('.division-section').forEach(section => {
+          section.classList.remove('active');
+          section.setAttribute('hidden', '');
+          section.setAttribute('aria-hidden', 'true');
+        });
+        const targetSection = document.getElementById(target);
+        if (targetSection) {
+          targetSection.classList.add('active');
+          targetSection.removeAttribute('hidden');
+          targetSection.setAttribute('aria-hidden', 'false');
+        }
+      });
     });
+
+    loadData();
   </script>
 </body>
 </html>
