@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Real Sports Tour - Live 2</title>
+  <title>Real Sports Tour - Live 3</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js?v=1.0.0"></script>
   <style>
    * {
@@ -510,7 +510,7 @@
     }
 
     async function fetchKarmaFeedWithRetry(user, id) {
-      const url = `https://api.real.vg/user/${id}/karmafeed?t=${TIMESTAMP}`;
+      const url = `https://rst-worker.tommyek600.workers.dev/?userId=${id}`;
       try {
         const data = await fetchViaWorker(url);
         const json = typeof data === 'string' ? JSON.parse(data) : data;
