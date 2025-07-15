@@ -102,6 +102,16 @@
       });
     }
 
+    function createPlayerRow(user, karma) {
+      const div = document.createElement('div');
+      div.className = 'player-card';
+      div.innerHTML = `
+        <span class="player-name">@${user['user @']}</span>
+        <span class="karma-value">${Math.round(karma)}</span>
+      `;
+      return div;
+    }
+
     async function fetchKarma(userId) {
       try {
         const bust = `&_=${Date.now()}`; // cache buster
@@ -113,14 +123,23 @@
       }
     }
 
-    function createPlayerRow(user, karma) {
-      const div = document.createElement('div');
-      div.className = 'player-card';
-      div.innerHTML = `
-        <span class="player-name">@${user['user @']}</span>
-        <span class="karma-value">${Math.round(karma)}</span>
-      `;
-      return div;
+    async function limitedMap(array, limit, asyncFn, onProgress) {
+      const results = [];
+      let index = 0;
+      const executing = new Set();
+
+      for (const item of array) {
+        const p = asyncFn(item).then(result => {
+          results.push(result);
+          if (onProgress) onProgress(++index, array.length);
+        });
+        executing.add(p);
+        p.finally(() => executing.delete(p));
+        if (executing.size >= limit) await Promise.race(executing);
+      }
+
+      await Promise.all(executing);
+      return results;
     }
 
     async function loadLeaderboard() {
@@ -128,17 +147,29 @@
         const response = await axios.get(CSV_URL);
         const users = parseCSV(response.data).filter(p => p.status?.toLowerCase() === 'active');
 
+        const updateProgress = (loaded, total) => {
+          loadingEl.textContent = `${loaded} loaded out of ${total}...`;
+        };
+
+        const enrichedUsers = await limitedMap(
+          users,
+          10,
+          async (user) => {
+            const karma = await fetchKarma(user['user id']);
+            return { ...user, karma };
+          },
+          updateProgress
+        );
+
         const amateur = [];
         const pro = [];
 
-        for (const user of users) {
-          const karma = await fetchKarma(user['user id']);
-          const data = { ...user, karma };
-
-          if (user.seed?.toLowerCase() === 'amatuer') {
-            amateur.push(data);
-          } else if (user.seed?.toLowerCase() === 'pro') {
-            pro.push(data);
+        for (const user of enrichedUsers) {
+          const seed = user.seed?.toLowerCase();
+          if (seed === 'amatuer') {
+            amateur.push(user);
+          } else if (seed === 'pro') {
+            pro.push(user);
           }
         }
 
