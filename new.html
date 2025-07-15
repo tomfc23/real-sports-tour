@@ -42,8 +42,15 @@
     .bracket-title {
       font-size: 22px;
       color: var(--accent-color);
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       text-align: center;
+    }
+
+    .median {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 12px;
     }
 
     .player-card {
@@ -77,12 +84,16 @@
 <body>
   <h1>Karma League Live Scores</h1>
   <div class="loading" id="loading">Loading leaderboard...</div>
+
   <div class="bracket" id="amateur-section">
     <div class="bracket-title">Amateur Bracket</div>
+    <div class="median" id="amateur-median"></div>
     <div id="amateur-list"></div>
   </div>
+
   <div class="bracket" id="pro-section">
     <div class="bracket-title">Pro Bracket</div>
+    <div class="median" id="pro-median"></div>
     <div id="pro-list"></div>
   </div>
 
@@ -90,6 +101,8 @@
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
     const WORKER_URL = 'https://rst.tomfconreal.workers.dev/';
     const loadingEl = document.getElementById('loading');
+
+    const isFridayOrSunday = [0, 5].includes(new Date().getDay());
 
     function parseCSV(text) {
       const lines = text.trim().split('\n');
@@ -114,10 +127,12 @@
 
     async function fetchKarma(userId) {
       try {
-        const bust = `&_=${Date.now()}`; // cache buster
+        const bust = `&_=${Date.now()}`;
         const res = await fetch(`${WORKER_URL}?userId=${encodeURIComponent(userId)}${bust}`);
         const json = await res.json();
-        return parseFloat(json?.stats?.karmaDelta || 0);
+        const delta = parseFloat(json?.stats?.karmaDelta || 0);
+        const yesterday = parseFloat(json?.stats?.karmaYesterdayDelta || 0);
+        return isFridayOrSunday ? delta + yesterday : delta;
       } catch {
         return 0;
       }
@@ -142,6 +157,15 @@
       return results;
     }
 
+    function calculateMedian(values) {
+      if (!values.length) return 0;
+      const sorted = [...values].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0
+        ? sorted[mid]
+        : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
     async function loadLeaderboard() {
       try {
         const response = await axios.get(CSV_URL);
@@ -161,8 +185,7 @@
           updateProgress
         );
 
-        const amateur = [];
-        const pro = [];
+        const amateur = [], pro = [];
 
         for (const user of enrichedUsers) {
           const seed = user.seed?.toLowerCase();
@@ -181,6 +204,12 @@
 
         amateur.forEach(user => amateurList.appendChild(createPlayerRow(user, user.karma)));
         pro.forEach(user => proList.appendChild(createPlayerRow(user, user.karma)));
+
+        const amateurMedian = calculateMedian(amateur.map(u => u.karma));
+        const proMedian = calculateMedian(pro.map(u => u.karma));
+
+        document.getElementById('amateur-median').textContent = `Median Karma: ${Math.round(amateurMedian)}`;
+        document.getElementById('pro-median').textContent = `Median Karma: ${Math.round(proMedian)}`;
 
         loadingEl.textContent = 'Live scores updated.';
       } catch (e) {
