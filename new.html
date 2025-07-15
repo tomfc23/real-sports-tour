@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Karma League - Individual Leaderboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-color: #1e1e1e;
+      --accent-color: #00ff88;
+      --text-color: #ffffff;
+      --text-muted: #aaa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      padding: 24px;
+      max-width: 700px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 24px;
+    }
+
+    .bracket {
+      margin-bottom: 40px;
+    }
+
+    .bracket-title {
+      font-size: 22px;
+      color: var(--accent-color);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .player-card {
+      background: var(--card-color);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      font-size: 15px;
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .loading {
+      text-align: center;
+      color: var(--accent-color);
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    .player-name {
+      font-weight: bold;
+    }
+
+    .karma-value {
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <h1>Karma League Live Scores</h1>
+  <div class="loading" id="loading">Loading leaderboard...</div>
+  <div class="bracket" id="amateur-section">
+    <div class="bracket-title">Amateur Bracket</div>
+    <div id="amateur-list"></div>
+  </div>
+  <div class="bracket" id="pro-section">
+    <div class="bracket-title">Pro Bracket</div>
+    <div id="pro-list"></div>
+  </div>
+
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const WORKER_URL = 'https://rst.tomfconreal.workers.dev/';
+    const loadingEl = document.getElementById('loading');
+
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      return lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = values[i]);
+        return obj;
+      });
+    }
+
+    async function fetchKarma(userId) {
+      try {
+        const bust = `&_=${Date.now()}`; // cache buster
+        const res = await fetch(`${WORKER_URL}?userId=${encodeURIComponent(userId)}${bust}`);
+        const json = await res.json();
+        return parseFloat(json?.stats?.karmaDelta || 0);
+      } catch {
+        return 0;
+      }
+    }
+
+    function createPlayerRow(user, karma) {
+      const div = document.createElement('div');
+      div.className = 'player-card';
+      div.innerHTML = `
+        <span class="player-name">@${user['user @']}</span>
+        <span class="karma-value">${Math.round(karma)}</span>
+      `;
+      return div;
+    }
+
+    async function loadLeaderboard() {
+      try {
+        const response = await axios.get(CSV_URL);
+        const users = parseCSV(response.data).filter(p => p.status?.toLowerCase() === 'active');
+
+        const amateur = [];
+        const pro = [];
+
+        for (const user of users) {
+          const karma = await fetchKarma(user['user id']);
+          const data = { ...user, karma };
+
+          if (user.seed?.toLowerCase() === 'amatuer') {
+            amateur.push(data);
+          } else if (user.seed?.toLowerCase() === 'pro') {
+            pro.push(data);
+          }
+        }
+
+        amateur.sort((a, b) => b.karma - a.karma);
+        pro.sort((a, b) => b.karma - a.karma);
+
+        const amateurList = document.getElementById('amateur-list');
+        const proList = document.getElementById('pro-list');
+
+        amateur.forEach(user => amateurList.appendChild(createPlayerRow(user, user.karma)));
+        pro.forEach(user => proList.appendChild(createPlayerRow(user, user.karma)));
+
+        loadingEl.textContent = 'Live scores updated.';
+      } catch (e) {
+        console.error(e);
+        loadingEl.textContent = 'Failed to load leaderboard.';
+      }
+    }
+
+    loadLeaderboard();
+  </script>
+</body>
+</html>
