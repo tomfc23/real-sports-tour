@@ -1,197 +1,209 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Karma League Live Scores 2</title>
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-<style>
-  :root {
-    --bg-color: #0a0a17;
-    --card-color: #1a0f3d;
-    --accent-color: #9a4dff;
-    --text-color: #e0d9ff;
-    --text-muted: #8a79a3;
-    --table-border: #3a2f66;
-  }
-  body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-family: 'Segoe UI', Roboto, sans-serif;
-    max-width: 760px;
-    margin: auto;
-    padding: 24px;
-  }
-  h1 {
-    text-align: center;
-    margin-bottom: 24px;
-  }
-  .loading {
-    color: var(--accent-color);
-    margin-bottom: 16px;
-    text-align: center;
-  }
-  .bracket {
-    margin-bottom: 40px;
-  }
-  .bracket h2 {
-    border-bottom: 2px solid var(--accent-color);
-    padding-bottom: 6px;
-    margin-bottom: 12px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: var(--card-color);
-    border: 1px solid var(--table-border);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  th, td {
-    text-align: left;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--table-border);
-  }
-  th {
-    color: var(--accent-color);
-  }
-  tbody tr:hover {
-    background-color: #3a2f66;
-  }
-  .footer {
-    text-align: center;
-    margin-top: 32px;
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Karma League Live Scores 3</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #1a001a;
+      --card-color: #2e0033;
+      --accent-color: #b366ff;
+      --text-color: #e0d9ff;
+      --text-muted: #9a7eff;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      padding: 24px;
+      max-width: 760px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 32px;
+      margin-bottom: 16px;
+      color: var(--accent-color);
+    }
+
+    #loading-indicator {
+      text-align: center;
+      font-size: 14px;
+      color: var(--accent-color);
+      margin-bottom: 16px;
+    }
+
+    .bracket {
+      background-color: var(--card-color);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 0 15px rgba(179,102,255,0.4);
+    }
+
+    .bracket h2 {
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--accent-color);
+      padding-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    thead tr {
+      border-bottom: 2px solid var(--accent-color);
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 6px;
+      color: var(--text-color);
+    }
+
+    tbody tr:nth-child(odd) {
+      background-color: #3a004d;
+    }
+
+    tbody tr[style*="opacity:0.4"] {
+      opacity: 0.4;
+    }
+  </style>
 </head>
 <body>
-<h1>Karma League Live Scores</h1>
-<div class="loading" id="loading-indicator">Loading...</div>
-<div id="leaderboard"></div>
-<div class="footer">Auto-refreshes every 5 minutes</div>
+  <h1>Karma League Live Scores</h1>
+  <div id="loading-indicator">Loading...</div>
+  <div id="leaderboard-container"></div>
 
 <script>
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
 const WORKER_URL = 'https://rst.tomfconreal.workers.dev/';
-const CONCURRENCY = 10;
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
 
-// Utility: parse CSV text to array of objects
+// Cache karma fetches per userId
+const karmaCache = new Map();
+const concurrencyLimit = 10;
+
+function getESTDayBounds() {
+  // Returns 5 timestamps in seconds UTC of 7AM EST for Thu, Fri, Sat, Sun, Mon boundaries.
+  // Tournament Thu-Sun days start at 7AM EST (UTC-4 or UTC-5 with DST). 
+  // We'll create Date objects at 7AM EST for the relevant days and convert to UTC timestamps in seconds.
+  // Assumes EST is always UTC-4 here for simplicity (adjust if DST matters).
+  const estOffset = -4 * 3600; // seconds offset from UTC
+  const now = new Date();
+
+  // Get today's date in EST timezone by shifting UTC by offset
+  const utcYear = now.getUTCFullYear();
+  const utcMonth = now.getUTCMonth();
+  const utcDate = now.getUTCDate();
+
+  // We'll find the Thursday of this week (or nearest past Thu if today after Thu)
+  // Date of nearest Thursday relative to today:
+  const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon ... 4=Thu ...
+  // Find offset to Thursday (4)
+  let diffToThu = 4 - dayOfWeek;
+  if (diffToThu > 0) diffToThu -= 7; // ensure Thursday in past week or today
+
+  // Thu Date UTC
+  const thuDate = new Date(Date.UTC(utcYear, utcMonth, utcDate + diffToThu));
+
+  // Helper: create 7AM EST Date UTC timestamp seconds for given date
+  function sevenAmEst(date) {
+    // 7 AM EST in UTC = 7 AM + 4 hours = 11AM UTC
+    // So set UTC hours to 11
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 11, 0, 0) / 1000;
+  }
+
+  // Calculate boundaries Thu, Fri, Sat, Sun, Mon at 7AM EST
+  const thu = sevenAmEst(thuDate);
+  const fri = thu + 86400;
+  const sat = fri + 86400;
+  const sun = sat + 86400;
+  const mon = sun + 86400;
+
+  return [thu, fri, sat, sun, mon];
+}
+
+function calculateMedian(arr) {
+  if (!arr.length) return 0;
+  const sorted = arr.slice().sort((a,b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 !== 0) return sorted[mid];
+  return (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Parse CSV from Google Sheets
 function parseCSV(text) {
   const lines = text.trim().split('\n');
   const headers = lines[0].split(',').map(h => h.trim());
   return lines.slice(1).map(line => {
-    const values = line.split(',').map(p => p.trim());
+    const values = line.split(',').map(v => v.trim());
     const obj = {};
-    headers.forEach((h, i) => obj[h] = values[i]);
+    headers.forEach((h,i) => obj[h] = values[i]);
     return obj;
   });
 }
 
-// Get EST midnight 7AM time boundaries for Thu-Sun ranges as unix timestamps (seconds)
-function getESTDayBounds() {
-  const now = new Date();
-  const nowEst = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const estDay = nowEst.getDay();
-  const today7amEst = new Date(nowEst);
-  today7amEst.setHours(7,0,0,0);
-  let daysSinceThursday = estDay - 4;
-  if (daysSinceThursday < 0) daysSinceThursday += 7;
-  if (estDay === 4 && nowEst < today7amEst) {
-    daysSinceThursday = 7;
+// Fetch karma data for one userId with caching and cache busting (add timestamp param)
+async function fetchKarma(userId) {
+  if (karmaCache.has(userId)) return karmaCache.get(userId);
+  try {
+    const url = `${WORKER_URL}?userId=${encodeURIComponent(userId)}&cb=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    // data.items expected: array of events with createdAt and amount
+    if (!data.items || !Array.isArray(data.items)) return [];
+    karmaCache.set(userId, data.items);
+    return data.items;
+  } catch (e) {
+    console.warn(`Failed fetching karma for ${userId}: ${e}`);
+    return [];
   }
-  const thursday7amEst = new Date(nowEst);
-  thursday7amEst.setHours(7,0,0,0);
-  thursday7amEst.setDate(thursday7amEst.getDate() - daysSinceThursday);
-
-  const boundaries = [];
-  for(let i=0; i<5; i++) {
-    const d = new Date(thursday7amEst);
-    d.setDate(d.getDate() + i);
-    boundaries.push(Math.floor(d.getTime()/1000));
-  }
-  return boundaries; // [Thu7AM, Fri7AM, Sat7AM, Sun7AM, Mon7AM]
 }
 
-// Determine current phase & tournament started/ended status
-function getCurrentPhase() {
-  const [thu, fri, sat, sun, mon] = getESTDayBounds();
-  const nowUtcSec = Math.floor(Date.now()/1000);
-
-  if (nowUtcSec < thu) return { phase:'pre-tournament', daysToSum: [], cutoffActive:false, todayWindowStart: null, todayWindowEnd: null };
-  if (nowUtcSec < fri) return { phase:'thursday', daysToSum: ['thursday'], cutoffActive:false };
-  if (nowUtcSec < sat) return { phase:'friday', daysToSum: ['thursday','friday'], cutoffActive:false };
-  if (nowUtcSec < sun) return { phase:'saturday', daysToSum: ['thursday','friday','saturday'], cutoffActive:true };
-  if (nowUtcSec < mon) return { phase:'sunday', daysToSum: ['thursday','friday','saturday','sunday'], cutoffActive:true };
-  return { phase:'finished', daysToSum: ['thursday','friday','saturday','sunday'], cutoffActive:true };
-}
-
-// Bucket karmafeed by day name
+// Bucket karmafeed events into day sums based on EST 7AM day boundaries
 function bucketKarmaByDay(karmafeed) {
   const [thu, fri, sat, sun, mon] = getESTDayBounds();
-  const scores = { thursday:0, friday:0, saturday:0, sunday:0 };
+  const scores = { thursday: 0, friday: 0, saturday: 0, sunday: 0 };
   if (!Array.isArray(karmafeed)) return scores;
-  for(const entry of karmafeed) {
-    const ts = entry.timestamp;
-    const delta = Number(entry.karmaDelta) || 0;
-    if (ts >= thu && ts < fri) scores.thursday += delta;
-    else if (ts >= fri && ts < sat) scores.friday += delta;
-    else if (ts >= sat && ts < sun) scores.saturday += delta;
-    else if (ts >= sun && ts < mon) scores.sunday += delta;
+
+  for (const entry of karmafeed) {
+    if (!entry.createdAt || entry.amount == null) continue;
+    const eventDate = new Date(entry.createdAt);
+    const eventTs = eventDate.getTime() / 1000; // seconds UTC
+    const delta = Number(entry.amount) || 0;
+    if (eventTs >= thu && eventTs < fri) scores.thursday += delta;
+    else if (eventTs >= fri && eventTs < sat) scores.friday += delta;
+    else if (eventTs >= sat && eventTs < sun) scores.saturday += delta;
+    else if (eventTs >= sun && eventTs < mon) scores.sunday += delta;
   }
   Object.keys(scores).forEach(k => scores[k] = Math.round(scores[k]));
   return scores;
 }
 
-// Bucket karmafeed for today only (7AM–7AM EST day window)
-function bucketKarmaToday(karmafeed) {
-  if (!Array.isArray(karmafeed)) return 0;
-  const now = new Date();
-  const nowEst = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const today7amEst = new Date(nowEst);
-  today7amEst.setHours(7,0,0,0);
-  let start, end;
-
-  if (nowEst >= today7amEst) {
-    start = Math.floor(today7amEst.getTime()/1000);
-    end = start + 86400; // +1 day in seconds
-  } else {
-    // Before 7AM, today window is previous day 7AM to today 7AM
-    end = Math.floor(today7amEst.getTime()/1000);
-    start = end - 86400;
-  }
-
-  let sum = 0;
-  for(const entry of karmafeed) {
-    const ts = entry.timestamp;
-    const delta = Number(entry.karmaDelta) || 0;
-    if (ts >= start && ts < end) sum += delta;
-  }
-  return Math.round(sum);
-}
-
-// Median calculation
-function calculateMedian(arr) {
-  if (!arr.length) return 0;
-  const sorted = arr.map(u => u.sum).sort((a,b)=>a-b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    return (sorted[mid-1] + sorted[mid]) / 2;
-  } else {
-    return sorted[mid];
-  }
-}
-
-// Limited concurrency async map
-async function limitedMap(array, limit, asyncFn, onProgress) {
+// Concurrency helper: limit concurrency of async calls
+async function limitedMap(arr, limit, asyncFn, onProgress) {
   const results = [];
   let index = 0;
   const executing = new Set();
-  for (const item of array) {
+
+  for (const item of arr) {
     const p = asyncFn(item).then(res => {
       results.push(res);
-      if (onProgress) onProgress(++index, array.length);
+      if (onProgress) onProgress(++index, arr.length);
     });
     executing.add(p);
     p.finally(() => executing.delete(p));
@@ -201,151 +213,127 @@ async function limitedMap(array, limit, asyncFn, onProgress) {
   return results;
 }
 
-// Fetch karmafeed JSON from Worker for userId
-async function fetchKarmaFeed(userId) {
-  try {
-    const res = await fetch(`${WORKER_URL}?userId=${encodeURIComponent(userId)}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.karmafeed || [];
-  } catch {
-    return null;
-  }
-}
-
-// Main load function
 async function loadLeaderboard() {
   const loading = document.getElementById('loading-indicator');
-  const container = document.getElementById('leaderboard');
-  container.innerHTML = '';
-  loading.textContent = 'Loading users CSV...';
+  const container = document.getElementById('leaderboard-container');
+  loading.textContent = 'Loading CSV...';
 
   try {
-    // 1. Fetch user CSV
-    const csvRes = await axios.get(CSV_URL);
-    const users = parseCSV(csvRes.data)
+    // Load users CSV: user @,user id ,seed ,status
+    const csvRes = await axios.get(`${CSV_URL}?cb=${Date.now()}`);
+    const usersRaw = parseCSV(csvRes.data)
       .filter(u => u.status?.toLowerCase() === 'active')
       .map(u => ({
         userAt: u['user @'],
         userId: u['user id'],
-        seed: u.seed.trim().toLowerCase(),
-        scores: { thursday: 0, friday: 0, saturday: 0, sunday: 0 },
-        sum: 0,
-        qualified: false,
+        seed: u.seed?.toLowerCase() === 'pro' ? 'pro' : 'amatuer',
+        scores: {}, sum: 0, qualified: true, karmafeed: []
       }));
 
-    loading.textContent = `Fetching karma for ${users.length} users...`;
+    loading.textContent = `Fetching karma for ${usersRaw.length} users...`;
 
     let loadedCount = 0;
-    await limitedMap(users, CONCURRENCY, async user => {
-      const feed = await fetchKarmaFeed(user.userId);
-      user.karmafeed = feed || [];
-      loadedCount++;
-      loading.textContent = `Loaded karma for ${loadedCount} / ${users.length} users...`;
-      return user;
+    function updateProgress() {
+      loading.textContent = `Loaded karma for ${loadedCount++} of ${usersRaw.length} users...`;
+    }
+
+    // Fetch karmafeeds concurrently with limit
+    const karmaArrays = await limitedMap(usersRaw, concurrencyLimit, async u => {
+      const feed = await fetchKarma(u.userId);
+      updateProgress();
+      return feed;
     });
 
-    const phaseInfo = getCurrentPhase();
+    // Attach karmafeed and daily sums
+    usersRaw.forEach((u, i) => {
+      u.karmafeed = karmaArrays[i];
+      u.scores = bucketKarmaByDay(u.karmafeed);
+    });
 
-    // Pre-tournament: show today's karma only, no sums, no cutoff
-    if (phaseInfo.phase === 'pre-tournament') {
-      users.forEach(u => {
-        u.sum = bucketKarmaToday(u.karmafeed);
-        u.qualified = true; // all show
+    // Determine tournament phase and cutoff logic
+    // Phase day sums to use for final sum
+    // Thu & Fri sums used for cutoff
+    // Sum full Thu-Sun for final sum after cutoff
+
+    const [thu, fri, sat, sun] = getESTDayBounds();
+    const nowSec = Date.now() / 1000;
+
+    // Phase info and cutoffActive
+    let cutoffActive = false;
+    if (nowSec >= fri && nowSec < mon) cutoffActive = true;
+
+    // Compute initial sums for cutoff calc (Thu+Fri)
+    usersRaw.forEach(u => {
+      u.sum = (u.scores.thursday || 0) + (u.scores.friday || 0);
+    });
+
+    if (cutoffActive) {
+      // Calculate median cutoff per bracket
+      const amatuer = usersRaw.filter(u => u.seed === 'amatuer');
+      const pro = usersRaw.filter(u => u.seed === 'pro');
+
+      const amatuerMedian = calculateMedian(amatuer.map(u => u.sum));
+      const proMedian = calculateMedian(pro.map(u => u.sum));
+
+      // Mark qualified above median
+      amatuer.forEach(u => { u.qualified = u.sum > amatuerMedian; });
+      pro.forEach(u => { u.qualified = u.sum > proMedian; });
+
+      // For qualified users, sum Thu-Sun karma, else zero
+      usersRaw.forEach(u => {
+        if (u.qualified) {
+          u.sum = (u.scores.thursday || 0) + (u.scores.friday || 0) + (u.scores.saturday || 0) + (u.scores.sunday || 0);
+        } else {
+          u.sum = 0;
+        }
       });
-      // Sort all by today's karma descending
-      users.sort((a,b) => b.sum - a.sum || a.userAt.localeCompare(b.userAt));
+    } else {
+      // Before cutoff day: show live karmaDelta for today only (Sunday uses sunday karma only)
+      const todaySec = nowSec;
+      // We'll detect current EST day bucket by comparing now to boundaries:
+      // Show karma only for the current EST day
+      // fallback to Thursday bucket for safety
+      let currentBucket = 'thursday';
+      if (nowSec >= thu && nowSec < fri) currentBucket = 'thursday';
+      else if (nowSec >= fri && nowSec < sat) currentBucket = 'friday';
+      else if (nowSec >= sat && nowSec < sun) currentBucket = 'saturday';
+      else if (nowSec >= sun && nowSec < mon) currentBucket = 'sunday';
 
-      // Render all users in single leaderboard (no brackets)
-      let html = `<div class="bracket"><h2>Pre-Tournament Leaderboard (Today's Karma)</h2>`;
-      html += `<table><thead><tr><th>Rank</th><th>User</th><th>Karma</th></tr></thead><tbody>`;
+      usersRaw.forEach(u => {
+        u.sum = u.scores[currentBucket] || 0;
+        u.qualified = true;
+      });
+    }
+
+    // Sort each bracket descending sum, then username ascending
+    const amatuerUsers = usersRaw.filter(u => u.seed === 'amatuer').sort((a,b) => b.sum - a.sum || a.userAt.localeCompare(b.userAt));
+    const proUsers = usersRaw.filter(u => u.seed === 'pro').sort((a,b) => b.sum - a.sum || a.userAt.localeCompare(b.userAt));
+
+    function renderBracket(title, users) {
+      let html = `<div class="bracket"><h2>${title}</h2><table><thead><tr><th>Rank</th><th>User</th><th>Karma</th></tr></thead><tbody>`;
       let rank = 0;
       for (const u of users) {
         rank++;
-        html += `<tr><td>${rank}</td><td>@${u.userAt}</td><td>${u.sum}</td></tr>`;
-      }
-      html += `</tbody></table></div>`;
-      container.innerHTML = html;
-      loading.textContent = 'Pre-tournament live karma shown.';
-      return;
-    }
-
-    // Tournament started or ended - full logic
-
-    // Bucket karma by day for each user
-    users.forEach(u => {
-      u.scores = bucketKarmaByDay(u.karmafeed) || { thursday:0, friday:0, saturday:0, sunday:0 };
-    });
-
-    // Calculate sum karma & qualification before cutoff
-    users.forEach(u => {
-      if (!phaseInfo.cutoffActive) {
-        u.sum = phaseInfo.daysToSum.reduce((acc,d) => acc + (u.scores[d]||0), 0);
-        u.qualified = true;
-      } else {
-        // After cutoff: sum Thu+Fri for median calc first
-        u.sum = (u.scores.thursday||0) + (u.scores.friday||0);
-        u.qualified = false;
-      }
-    });
-
-    // After cutoff: calculate median and mark qualified
-    if (phaseInfo.cutoffActive) {
-      // Separate by seed brackets
-      const amatuer = users.filter(u => u.seed === 'amatuer');
-      const pro = users.filter(u => u.seed === 'pro');
-
-      // Calc median by bracket on Thu+Fri sum
-      const amatuerMedian = calculateMedian(amatuer);
-      const proMedian = calculateMedian(pro);
-
-      amatuer.forEach(u => {
-        u.qualified = u.sum > amatuerMedian;
-      });
-      pro.forEach(u => {
-        u.qualified = u.sum > proMedian;
-      });
-
-      // Now sum full days (Thu-Sun) only for qualified users
-      users.forEach(u => {
-        if (u.qualified) {
-          u.sum = phaseInfo.daysToSum.reduce((acc,d) => acc + (u.scores[d]||0), 0);
-        } else {
-          u.sum = 0; // eliminated users show zero
-        }
-      });
-    }
-
-    // Sort each bracket by sum descending, then username ascending
-    const amatuerUsers = users.filter(u => u.seed === 'amatuer').sort((a,b) => b.sum - a.sum || a.userAt.localeCompare(b.userAt));
-    const proUsers = users.filter(u => u.seed === 'pro').sort((a,b) => b.sum - a.sum || a.userAt.localeCompare(b.userAt));
-
-    // Render bracket tables
-    function renderBracket(title, arr) {
-      let html = `<div class="bracket"><h2>${title}</h2>`;
-      html += `<table><thead><tr><th>Rank</th><th>User</th><th>Karma</th></tr></thead><tbody>`;
-      let rank = 0;
-      for (const u of arr) {
-        rank++;
         html += `<tr${u.qualified ? '' : ' style="opacity:0.4"'}><td>${rank}</td><td>@${u.userAt}</td><td>${u.sum}</td></tr>`;
       }
-      html += `</tbody></table></div>`;
+      html += '</tbody></table></div>';
       return html;
     }
 
     container.innerHTML = renderBracket('Amateur Bracket', amatuerUsers) + renderBracket('Pro Bracket', proUsers);
-
-    loading.textContent = `Loaded ${users.length} users.`;
-
+    loading.textContent = `Loaded karma for ${usersRaw.length} users.`;
   } catch (e) {
     console.error(e);
-    document.getElementById('loading-indicator').textContent = 'Failed to load leaderboard.';
+    document.getElementById('loading-indicator').textContent = 'Error loading leaderboard.';
   }
 }
 
-// Initial load and auto-refresh every 5 minutes
+// Initial load + refresh every 5 minutes
 loadLeaderboard();
-setInterval(loadLeaderboard, 300000);
+setInterval(() => {
+  karmaCache.clear(); // clear cache to fetch fresh data
+  loadLeaderboard();
+}, 5 * 60 * 1000);
 </script>
 </body>
 </html>
