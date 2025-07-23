@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CSV User Mapper</title>
+  <title>CSV User Mapper 2</title>
   <style>
     body {
       background: #121212;
@@ -90,19 +90,20 @@
     }
 
     function parseCSV(data) {
-      const result = [];
-      for (let i = 1; i < data.length; i++) {
-        const [username, score, team, date] = data[i].split(",");
-        result.push({
-          username,
-          userId: USER_MAP[username] ?? "Not Found",
-          score,
-          team,
-          date
-        });
-      }
-      return result;
-    }
+  const result = [];
+  for (let i = 1; i < data.length; i++) {
+    const [username, score, team, date] = data[i].split(",");
+    result.push({
+      username,
+      userId: userMap[username] ?? "Not Found",
+      score,
+      team,
+      date
+    });
+  }
+  return result;
+}
+
 
     function createTable(data) {
       const table = document.createElement("table");
