@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Comment Scraper</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    pre {
+      background: #222;
+      padding: 1rem;
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Usernames from Replies</h1>
+  <pre id="output">Loading...</pre>
+
+  <script>
+    const proxy = 'https://api.allorigins.win/get?url=';
+    const target = encodeURIComponent('http://api.real.vg/comments/posts/608411/replies/22649387?limit=10');
+    const url = `${proxy}${target}`;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        const json = JSON.parse(data.contents);
+        const usernames = new Set();
+
+        if (Array.isArray(json.comments)) {
+          json.comments.forEach(comment => {
+            if (comment.user?.userName && comment.user?.id) {
+              usernames.add(`${comment.user.userName} - ${comment.user.id}`);
+            }
+          });
+        }
+
+        // Also include parentComment user if present
+        if (json.parentComment?.user?.userName && json.parentComment?.user?.id) {
+          usernames.add(`${json.parentComment.user.userName} - ${json.parentComment.user.id}`);
+        }
+
+        document.getElementById('output').textContent = [...usernames].join('\n');
+      })
+      .catch(err => {
+        document.getElementById('output').textContent = 'Failed to fetch data:\n' + err;
+      });
+  </script>
+</body>
+</html>
