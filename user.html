@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Comment Scraper</title>
+  <title>Username Scraper</title>
   <style>
     body {
       font-family: sans-serif;
@@ -14,17 +14,41 @@
       font-size: 1.5rem;
       margin-bottom: 1rem;
     }
-    pre {
-      background: #222;
-      padding: 1rem;
-      border-radius: 8px;
-      white-space: pre-wrap;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+    }
+    th, td {
+      padding: 0.5rem;
+      border: 1px solid #444;
+      text-align: left;
+    }
+    th {
+      background-color: #222;
+    }
+    button {
+      background-color: #333;
+      color: #eee;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #444;
     }
   </style>
 </head>
 <body>
-  <h1>Usernames from Replies</h1>
-  <pre id="output">Loading...</pre>
+  <h1>User Table</h1>
+  <table id="userTable">
+    <thead>
+      <tr><th>@username</th><th>userID</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <button onclick="copyTable()">Copy Table to Clipboard</button>
 
   <script>
     const proxy = 'https://api.allorigins.win/get?url=';
@@ -35,26 +59,51 @@
       .then(res => res.json())
       .then(data => {
         const json = JSON.parse(data.contents);
-        const usernames = new Set();
+        const seen = new Set();
+        const tbody = document.querySelector('#userTable tbody');
+
+        function addRow(username, id) {
+          if (!seen.has(id)) {
+            seen.add(id);
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>@${username}</td><td>${id}</td>`;
+            tbody.appendChild(row);
+          }
+        }
 
         if (Array.isArray(json.comments)) {
           json.comments.forEach(comment => {
-            if (comment.user?.userName && comment.user?.id) {
-              usernames.add(`${comment.user.userName} - ${comment.user.id}`);
+            const user = comment.user;
+            if (user?.userName && user?.id) {
+              addRow(user.userName, user.id);
             }
           });
         }
 
-        // Also include parentComment user if present
-        if (json.parentComment?.user?.userName && json.parentComment?.user?.id) {
-          usernames.add(`${json.parentComment.user.userName} - ${json.parentComment.user.id}`);
+        const parent = json.parentComment?.user;
+        if (parent?.userName && parent?.id) {
+          addRow(parent.userName, parent.id);
         }
-
-        document.getElementById('output').textContent = [...usernames].join('\n');
       })
       .catch(err => {
-        document.getElementById('output').textContent = 'Failed to fetch data:\n' + err;
+        const tbody = document.querySelector('#userTable tbody');
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="2">Error: ${err}</td>`;
+        tbody.appendChild(row);
       });
+
+    function copyTable() {
+      const rows = [...document.querySelectorAll('#userTable tbody tr')];
+      const text = rows.map(row =>
+        [...row.children].map(cell => cell.textContent).join(' | ')
+      ).join('\n');
+
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Copied to clipboard!');
+      }).catch(err => {
+        alert('Copy failed: ' + err);
+      });
+    }
   </script>
 </body>
 </html>
