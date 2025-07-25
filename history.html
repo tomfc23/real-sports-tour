@@ -20,6 +20,37 @@
       line-height: 1.5;
     }
 
+    .header {
+      position: relative;
+      margin-bottom: 32px;
+    }
+
+    .back-button {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      background: linear-gradient(135deg, #333 0%, #222 100%);
+      border: 1px solid #444;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: none;
+    }
+
+    .back-button:hover {
+      background: linear-gradient(135deg, #444 0%, #333 100%);
+      transform: translateY(-50%) translateY(-1px);
+    }
+
+    .back-button.show {
+      display: block;
+    }
+
     h1 {
       font-size: 28px;
       font-weight: 300;
@@ -201,6 +232,12 @@
       font-style: italic;
     }
 
+    .score-eliminated {
+      color: #cc4444;
+      opacity: 0.7;
+      font-style: italic;
+    }
+
     .placement-cell {
       text-align: center;
       font-weight: 600;
@@ -273,12 +310,25 @@
       .player-table td {
         padding: 8px 4px;
       }
+
+      .back-button {
+        position: static;
+        transform: none;
+        margin-bottom: 16px;
+      }
+
+      .back-button:hover {
+        transform: translateY(-1px);
+      }
     }
   </style>
 </head>
 <body>
-  <h1>RST Tournament Museum</h1>
-  <div class="subtitle">Historical Tournament Data Archive</div>
+  <div class="header">
+    <button class="back-button" id="back-button" onclick="goBack()">← Back</button>
+    <h1>RST Tournament Museum</h1>
+    <div class="subtitle">Historical Tournament Data Archive</div>
+  </div>
   
   <div class="loading" id="loading">Loading tournament data...</div>
 
@@ -372,6 +422,12 @@
         <tbody id="all-tbody"></tbody>
       </table>
     </div>
+
+    <div class="export-section">
+      <button class="export-btn" onclick="exportCurrentView()">Export Current View</button>
+      <button class="export-btn" onclick="exportAllData()">Export All Data</button>
+      <div class="copy-feedback" id="export-feedback">Data copied to clipboard!</div>
+    </div>
   </div>
 
   <script>
@@ -390,6 +446,14 @@
         headers.forEach((h, i) => obj[h] = values[i] || '');
         return obj;
       });
+    }
+
+    function goBack() {
+      document.getElementById('tournament-display').style.display = 'none';
+      document.getElementById('tournament-selector').style.display = 'block';
+      document.getElementById('back-button').classList.remove('show');
+      document.getElementById('tournament-select').value = '';
+      currentTournament = null;
     }
 
     function switchBracket(bracket) {
@@ -411,6 +475,9 @@
     function formatScore(score) {
       if (!score || score === 'TBD' || score === '') {
         return '<span class="score-tbd">TBD</span>';
+      }
+      if (score.toLowerCase() === 'eliminated') {
+        return '<span class="score-eliminated">Eliminated</span>';
       }
       return parseInt(score).toLocaleString();
     }
@@ -453,12 +520,16 @@
       
       if (!tournamentNum) {
         document.getElementById('tournament-display').style.display = 'none';
+        document.getElementById('back-button').classList.remove('show');
         return;
       }
 
       currentTournament = tournamentData.filter(p => p['tournament #'] === tournamentNum);
       
       if (currentTournament.length === 0) return;
+
+      // Show back button
+      document.getElementById('back-button').classList.add('show');
 
       // Update tournament info
       const startDate = currentTournament[0]['start date'];
@@ -509,6 +580,7 @@
         sortedAll.map((player, index) => createPlayerRow(player, index + 1, true)).join('');
 
       document.getElementById('tournament-display').style.display = 'block';
+      document.getElementById('tournament-selector').style.display = 'none';
     }
 
     function exportCurrentView() {
