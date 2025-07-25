@@ -272,7 +272,7 @@
       </div>
       <div class="player-list" id="amateur-list"></div>
       <div class="copy-button">
-        <button class="copy-btn" onclick="copyTop5('amateur')">Copy Top 5</button>
+        <button class="copy-btn" onclick="copyTopN('amateur')">Copy Top Players</button>
         <div class="copy-feedback" id="amateur-feedback">Copied to clipboard!</div>
       </div>
     </div>
@@ -284,7 +284,7 @@
       </div>
       <div class="player-list" id="pro-list"></div>
       <div class="copy-button">
-        <button class="copy-btn" onclick="copyTop5('pro')">Copy Top 5</button>
+        <button class="copy-btn" onclick="copyTopN('pro')">Copy Top Players</button>
         <div class="copy-feedback" id="pro-feedback">Copied to clipboard!</div>
       </div>
     </div>
@@ -313,18 +313,34 @@
       document.getElementById(`${tabName}-tab`).classList.add('active');
     }
 
-    function copyTop5(bracket) {
+    function copyTopN(bracket) {
       const data = bracket === 'amateur' ? amateurData : proData;
-      const top5 = data.slice(0, 5);
       
-      if (top5.length === 0) {
+      if (data.length === 0) {
         return;
       }
 
-      const bracketName = bracket === 'amateur' ? 'amateurs' : 'pros';
-      let output = `Today's scores are in! (${bracketName})\n-\nTop 5 Performances:\n`;
+      // Prompt user for number of players to copy
+      const maxPlayers = data.length;
+      const defaultCount = Math.min(5, maxPlayers);
+      const userInput = prompt(`How many top players would you like to copy? (1-${maxPlayers})`, defaultCount);
       
-      top5.forEach((player, index) => {
+      if (userInput === null) {
+        return; // User cancelled
+      }
+
+      const count = parseInt(userInput);
+      
+      if (isNaN(count) || count < 1 || count > maxPlayers) {
+        alert(`Please enter a valid number between 1 and ${maxPlayers}`);
+        return;
+      }
+
+      const topN = data.slice(0, count);
+      const bracketName = bracket === 'amateur' ? 'amateurs' : 'pros';
+      let output = `Day 1 scores are in! (${bracketName})\n-\nTop ${count} Performance${count === 1 ? '' : 's'}:\n`;
+      
+      topN.forEach((player, index) => {
         const karma = Math.round(player.karma).toLocaleString();
         output += `${index + 1}. @${player['user @']} - ${karma}\n`;
       });
@@ -333,9 +349,11 @@
       navigator.clipboard.writeText(output.trim()).then(() => {
         // Show feedback
         const feedback = document.getElementById(`${bracket}-feedback`);
+        feedback.textContent = `Copied top ${count} to clipboard!`;
         feedback.classList.add('show');
         setTimeout(() => {
           feedback.classList.remove('show');
+          feedback.textContent = 'Copied to clipboard!';
         }, 2000);
       }).catch(err => {
         console.error('Failed to copy: ', err);
@@ -348,9 +366,11 @@
         document.body.removeChild(textArea);
         
         const feedback = document.getElementById(`${bracket}-feedback`);
+        feedback.textContent = `Copied top ${count} to clipboard!`;
         feedback.classList.add('show');
         setTimeout(() => {
           feedback.classList.remove('show');
+          feedback.textContent = 'Copied to clipboard!';
         }, 2000);
       });
     }
