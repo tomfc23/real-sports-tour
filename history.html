@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RST Tournament Museum</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 300;
+      text-align: center;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 32px;
+    }
+
+    .loading {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: #888;
+      padding: 12px;
+      background-color: #111;
+      border-radius: 8px;
+    }
+
+    .tournament-selector {
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .tournament-selector select {
+      background-color: #111;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 16px;
+      min-width: 200px;
+      cursor: pointer;
+    }
+
+    .tournament-selector select:focus {
+      outline: none;
+      border-color: #555;
+    }
+
+    .tournament-info {
+      background: linear-gradient(135deg, #111 0%, #0a0a0a 100%);
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .tournament-title {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .tournament-date {
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .tournament-stats {
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .bracket-tabs {
+      display: flex;
+      border-bottom: 1px solid #333;
+      margin-bottom: 24px;
+    }
+
+    .bracket-tab {
+      flex: 1;
+      background: none;
+      border: none;
+      color: #666;
+      padding: 16px 20px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 2px solid transparent;
+    }
+
+    .bracket-tab:hover {
+      color: #ccc;
+      background-color: #111;
+    }
+
+    .bracket-tab.active {
+      color: #fff;
+      border-bottom-color: #fff;
+    }
+
+    .bracket-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .bracket-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .player-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+
+    .player-table th {
+      background-color: #111;
+      color: #ccc;
+      padding: 12px 8px;
+      text-align: left;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #333;
+    }
+
+    .player-table td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #222;
+      transition: background-color 0.2s ease;
+    }
+
+    .player-table tr:hover td {
+      background-color: #111;
+    }
+
+    .player-rank {
+      font-weight: 600;
+      color: #fff;
+      width: 50px;
+    }
+
+    .player-name {
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .score-cell {
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .score-tbd {
+      color: #666;
+      font-style: italic;
+    }
+
+    .placement-cell {
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .placement-1 { color: #ffd700; }
+    .placement-2 { color: #c0c0c0; }
+    .placement-3 { color: #cd7f32; }
+
+    .total-karma {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #666;
+      padding: 40px 20px;
+      font-style: italic;
+    }
+
+    .export-section {
+      margin-top: 32px;
+      text-align: center;
+      border-top: 1px solid #333;
+      padding-top: 24px;
+    }
+
+    .export-btn {
+      background: linear-gradient(135deg, #444 0%, #333 100%);
+      border: 1px solid #555;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 0 8px;
+    }
+
+    .export-btn:hover {
+      background: linear-gradient(135deg, #555 0%, #444 100%);
+      transform: translateY(-1px);
+    }
+
+    .copy-feedback {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #666;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .copy-feedback.show {
+      opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+      .tournament-stats {
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .player-table {
+        font-size: 14px;
+      }
+      
+      .player-table th,
+      .player-table td {
+        padding: 8px 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>RST Tournament Museum</h1>
+  <div class="subtitle">Historical Tournament Data Archive</div>
+  
+  <div class="loading" id="loading">Loading tournament data...</div>
+
+  <div class="tournament-selector" id="tournament-selector" style="display: none;">
+    <select id="tournament-select" onchange="displayTournament()">
+      <option value="">Select a tournament...</option>
+    </select>
+  </div>
+
+  <div id="tournament-display" style="display: none;">
+    <div class="tournament-info">
+      <div class="tournament-title" id="tournament-title"></div>
+      <div class="tournament-date" id="tournament-date"></div>
+      <div class="tournament-stats">
+        <div class="stat-item">
+          <div class="stat-value" id="total-players">0</div>
+          <div class="stat-label">Total Players</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="amateur-count">0</div>
+          <div class="stat-label">Amateur</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="pro-count">0</div>
+          <div class="stat-label">Pro</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="avg-karma">0</div>
+          <div class="stat-label">Avg Total Karma</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bracket-tabs">
+      <button class="bracket-tab active" onclick="switchBracket('amateur')">Amateur</button>
+      <button class="bracket-tab" onclick="switchBracket('pro')">Pro</button>
+      <button class="bracket-tab" onclick="switchBracket('all')">All Players</button>
+    </div>
+
+    <div id="amateur-bracket" class="bracket-content active">
+      <table class="player-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Day 1</th>
+            <th>Day 1+2</th>
+            <th>Day 3</th>
+            <th>Day 3+4</th>
+            <th>Placement</th>
+            <th>Total Karma</th>
+          </tr>
+        </thead>
+        <tbody id="amateur-tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="pro-bracket" class="bracket-content">
+      <table class="player-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Day 1</th>
+            <th>Day 1+2</th>
+            <th>Day 3</th>
+            <th>Day 3+4</th>
+            <th>Placement</th>
+            <th>Total Karma</th>
+          </tr>
+        </thead>
+        <tbody id="pro-tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="all-bracket" class="bracket-content">
+      <table class="player-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Bracket</th>
+            <th>Day 1</th>
+            <th>Day 1+2</th>
+            <th>Day 3</th>
+            <th>Day 3+4</th>
+            <th>Placement</th>
+            <th>Total Karma</th>
+          </tr>
+        </thead>
+        <tbody id="all-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="export-section">
+      <button class="export-btn" onclick="exportCurrentView()">Export Current View</button>
+      <button class="export-btn" onclick="exportAllData()">Export All Tournament Data</button>
+      <div class="copy-feedback" id="export-feedback">Exported to clipboard!</div>
+    </div>
+  </div>
+
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjNNlKuRrsEV4Dgredtg3hyrNUai_SNnxzuRmAOwGuAK06Tcf1dyuuJTzLnE3M662tMFPk08WJ-OLg/pub?output=csv';
+    
+    let tournamentData = [];
+    let currentTournament = null;
+    let currentBracket = 'amateur';
+
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      return lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = values[i] || '');
+        return obj;
+      });
+    }
+
+    function switchBracket(bracket) {
+      currentBracket = bracket;
+      
+      // Update tab states
+      document.querySelectorAll('.bracket-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Update content visibility
+      document.querySelectorAll('.bracket-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`${bracket}-bracket`).classList.add('active');
+    }
+
+    function formatScore(score) {
+      if (!score || score === 'TBD' || score === '') {
+        return '<span class="score-tbd">TBD</span>';
+      }
+      return parseInt(score).toLocaleString();
+    }
+
+    function formatPlacement(placement) {
+      if (!placement || placement === 'TBD' || placement === '') {
+        return '<span class="score-tbd">TBD</span>';
+      }
+      
+      const place = parseInt(placement);
+      let className = '';
+      if (place === 1) className = 'placement-1';
+      else if (place === 2) className = 'placement-2';
+      else if (place === 3) className = 'placement-3';
+      
+      return `<span class="placement-cell ${className}">${place}</span>`;
+    }
+
+    function createPlayerRow(player, rank, showBracket = false) {
+      const bracketCell = showBracket ? `<td style="text-transform: capitalize;">${player.bracket}</td>` : '';
+      
+      return `
+        <tr>
+          <td class="player-rank">#${rank}</td>
+          <td class="player-name">@${player.username}</td>
+          ${bracketCell}
+          <td class="score-cell">${formatScore(player['day 1 score'])}</td>
+          <td class="score-cell">${formatScore(player['day 1+2 score'])}</td>
+          <td class="score-cell">${formatScore(player['day 3 score'])}</td>
+          <td class="score-cell">${formatScore(player['day 3+4 score'])}</td>
+          <td class="score-cell">${formatPlacement(player.placement)}</td>
+          <td class="score-cell total-karma">${formatScore(player['total karma'])}</td>
+        </tr>
+      `;
+    }
+
+    function displayTournament() {
+      const select = document.getElementById('tournament-select');
+      const tournamentNum = select.value;
+      
+      if (!tournamentNum) {
+        document.getElementById('tournament-display').style.display = 'none';
+        return;
+      }
+
+      currentTournament = tournamentData.filter(p => p['tournament #'] === tournamentNum);
+      
+      if (currentTournament.length === 0) return;
+
+      // Update tournament info
+      const startDate = currentTournament[0]['start date'];
+      document.getElementById('tournament-title').textContent = `Tournament #${tournamentNum}`;
+      document.getElementById('tournament-date').textContent = `Started: ${startDate}`;
+
+      // Calculate stats
+      const amateurPlayers = currentTournament.filter(p => p.bracket === 'amatuer');
+      const proPlayers = currentTournament.filter(p => p.bracket === 'pro');
+      const totalKarma = currentTournament.reduce((sum, p) => {
+        const karma = parseInt(p['total karma']) || 0;
+        return sum + karma;
+      }, 0);
+      const avgKarma = Math.round(totalKarma / currentTournament.length);
+
+      document.getElementById('total-players').textContent = currentTournament.length;
+      document.getElementById('amateur-count').textContent = amateurPlayers.length;
+      document.getElementById('pro-count').textContent = proPlayers.length;
+      document.getElementById('avg-karma').textContent = avgKarma.toLocaleString();
+
+      // Sort players by total karma (descending)
+      const sortedAmateur = amateurPlayers.sort((a, b) => {
+        const karmaA = parseInt(a['total karma']) || 0;
+        const karmaB = parseInt(b['total karma']) || 0;
+        return karmaB - karmaA;
+      });
+
+      const sortedPro = proPlayers.sort((a, b) => {
+        const karmaA = parseInt(a['total karma']) || 0;
+        const karmaB = parseInt(b['total karma']) || 0;
+        return karmaB - karmaA;
+      });
+
+      const sortedAll = currentTournament.sort((a, b) => {
+        const karmaA = parseInt(a['total karma']) || 0;
+        const karmaB = parseInt(b['total karma']) || 0;
+        return karmaB - karmaA;
+      });
+
+      // Populate tables
+      document.getElementById('amateur-tbody').innerHTML = 
+        sortedAmateur.map((player, index) => createPlayerRow(player, index + 1)).join('');
+      
+      document.getElementById('pro-tbody').innerHTML = 
+        sortedPro.map((player, index) => createPlayerRow(player, index + 1)).join('');
+      
+      document.getElementById('all-tbody').innerHTML = 
+        sortedAll.map((player, index) => createPlayerRow(player, index + 1, true)).join('');
+
+      document.getElementById('tournament-display').style.display = 'block';
+    }
+
+    function exportCurrentView() {
+      if (!currentTournament) return;
+
+      let data;
+      let headers = 'tournament #,start date,username,userid,bracket,day 1 score,day 1+2 score,day 3 score,day 3+4 score,placement,total karma\n';
+      
+      if (currentBracket === 'amateur') {
+        data = currentTournament.filter(p => p.bracket === 'amatuer');
+      } else if (currentBracket === 'pro') {
+        data = currentTournament.filter(p => p.bracket === 'pro');
+      } else {
+        data = currentTournament;
+      }
+
+      let output = headers;
+      data.forEach(player => {
+        output += `${player['tournament #']},${player['start date']},${player.username},${player.userid},${player.bracket},${player['day 1 score']},${player['day 1+2 score']},${player['day 3 score']},${player['day 3+4 score']},${player.placement},${player['total karma']}\n`;
+      });
+
+      copyToClipboard(output.trim());
+    }
+
+    function exportAllData() {
+      let headers = 'tournament #,start date,username,userid,bracket,day 1 score,day 1+2 score,day 3 score,day 3+4 score,placement,total karma\n';
+      let output = headers;
+      
+      tournamentData.forEach(player => {
+        output += `${player['tournament #']},${player['start date']},${player.username},${player.userid},${player.bracket},${player['day 1 score']},${player['day 1+2 score']},${player['day 3 score']},${player['day 3+4 score']},${player.placement},${player['total karma']}\n`;
+      });
+
+      copyToClipboard(output.trim());
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showFeedback();
+      }).catch(err => {
+        // Fallback
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showFeedback();
+      });
+    }
+
+    function showFeedback() {
+      const feedback = document.getElementById('export-feedback');
+      feedback.classList.add('show');
+      setTimeout(() => {
+        feedback.classList.remove('show');
+      }, 2000);
+    }
+
+    async function loadTournamentData() {
+      try {
+        const response = await axios.get(CSV_URL);
+        tournamentData = parseCSV(response.data);
+
+        // Get unique tournaments
+        const tournaments = [...new Set(tournamentData.map(p => p['tournament #']))].sort();
+        
+        const select = document.getElementById('tournament-select');
+        tournaments.forEach(tournament => {
+          const option = document.createElement('option');
+          option.value = tournament;
+          option.textContent = `Tournament #${tournament}`;
+          select.appendChild(option);
+        });
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('tournament-selector').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error loading tournament data:', error);
+        document.getElementById('loading').textContent = 'Failed to load tournament data.';
+      }
+    }
+
+    loadTournamentData();
+  </script>
+</body>
+</html>
