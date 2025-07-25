@@ -322,7 +322,7 @@
       }
 
       const bracketName = bracket === 'amateur' ? 'amateurs' : 'pros';
-      let output = `Day 1 scores are in! (${bracketName})\n-\nTop 5 Performances:\n`;
+      let output = `Today's scores are in! (${bracketName})\n-\nTop 5 Performances:\n`;
       
       top5.forEach((player, index) => {
         const karma = Math.round(player.karma).toLocaleString();
