@@ -185,6 +185,45 @@
       font-style: italic;
     }
 
+    .copy-button {
+      margin-top: 24px;
+      text-align: center;
+    }
+
+    .copy-btn {
+      background: linear-gradient(135deg, #222 0%, #111 100%);
+      border: 1px solid #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background: linear-gradient(135deg, #333 0%, #222 100%);
+      border-color: #444;
+      transform: translateY(-1px);
+    }
+
+    .copy-btn:active {
+      transform: translateY(0);
+    }
+
+    .copy-feedback {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .copy-feedback.show {
+      opacity: 1;
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 16px;
@@ -232,6 +271,10 @@
         <div class="median" id="amateur-median"></div>
       </div>
       <div class="player-list" id="amateur-list"></div>
+      <div class="copy-button">
+        <button class="copy-btn" onclick="copyTop5('amateur')">Copy Top 5</button>
+        <div class="copy-feedback" id="amateur-feedback">Copied to clipboard!</div>
+      </div>
     </div>
 
     <div id="pro-tab" class="tab-content">
@@ -240,6 +283,10 @@
         <div class="median" id="pro-median"></div>
       </div>
       <div class="player-list" id="pro-list"></div>
+      <div class="copy-button">
+        <button class="copy-btn" onclick="copyTop5('pro')">Copy Top 5</button>
+        <div class="copy-feedback" id="pro-feedback">Copied to clipboard!</div>
+      </div>
     </div>
   </div>
 
@@ -247,6 +294,10 @@
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
     const WORKER_URL = 'https://rst.tomfconreal.workers.dev/';
     const loadingEl = document.getElementById('loading');
+
+    // Store the sorted data for copying
+    let amateurData = [];
+    let proData = [];
 
     function switchTab(tabName) {
       // Update button states
@@ -260,6 +311,48 @@
         content.classList.remove('active');
       });
       document.getElementById(`${tabName}-tab`).classList.add('active');
+    }
+
+    function copyTop5(bracket) {
+      const data = bracket === 'amateur' ? amateurData : proData;
+      const top5 = data.slice(0, 5);
+      
+      if (top5.length === 0) {
+        return;
+      }
+
+      const bracketName = bracket === 'amateur' ? 'amateurs' : 'pros';
+      let output = `Day 1 scores are in! (${bracketName})\n-\nTop 5 Performances:\n`;
+      
+      top5.forEach((player, index) => {
+        const karma = Math.round(player.karma).toLocaleString();
+        output += `${index + 1}. @${player['user @']} - ${karma}\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(output.trim()).then(() => {
+        // Show feedback
+        const feedback = document.getElementById(`${bracket}-feedback`);
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = output.trim();
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const feedback = document.getElementById(`${bracket}-feedback`);
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      });
     }
 
     // Function to check if we should include yesterday's karma
@@ -387,6 +480,10 @@
 
         amateur.sort((a, b) => b.karma - a.karma);
         pro.sort((a, b) => b.karma - a.karma);
+
+        // Store sorted data for copying
+        amateurData = amateur;
+        proData = pro;
 
         const amateurList = document.getElementById('amateur-list');
         const proList = document.getElementById('pro-list');
