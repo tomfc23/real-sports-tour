@@ -295,9 +295,10 @@
     const WORKER_URL = 'https://rst.tomfconreal.workers.dev/';
     const loadingEl = document.getElementById('loading');
 
-    // Store the sorted data for copying
+    // Store the sorted data for copying and raw karma data
     let amateurData = [];
     let proData = [];
+    let karmaDataMap = new Map(); // Store raw karma data by user ID
 
     function switchTab(tabName) {
       // Update button states
@@ -375,6 +376,64 @@
       });
     }
 
+    function exportAllScores() {
+      // Combine both amateur and pro data
+      const allData = [...amateurData, ...proData];
+      
+      if (allData.length === 0) {
+        return;
+      }
+
+      // Sort by username alphabetically for export
+      const sortedData = allData.sort((a, b) => {
+        const usernameA = a['user @'].toLowerCase();
+        const usernameB = b['user @'].toLowerCase();
+        return usernameA.localeCompare(usernameB);
+      });
+
+      let output = '';
+      
+      sortedData.forEach(player => {
+        const userId = player['user id'];
+        const username = player['user @'];
+        const seed = player.seed;
+        
+        // Get raw karma data
+        const karmaData = karmaDataMap.get(userId);
+        if (!karmaData) return;
+        
+        const day1 = Math.round(karmaData.karmaYesterdayDelta);
+        const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
+        
+        output += `${username}${userId}${seed}${day1}${day1Plus2}`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(output).then(() => {
+        // Show feedback
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = output;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      });
+    }
+
     // Function to check if we should include yesterday's karma
     function shouldIncludeYesterdayKarma() {
       const now = new Date();
@@ -432,6 +491,12 @@
         const json = await res.json();
         const delta = parseFloat(json?.stats?.karmaDelta || 0);
         const yesterday = parseFloat(json?.stats?.karmaYesterdayDelta || 0);
+        
+        // Store the raw data for export
+        karmaDataMap.set(userId, {
+          karmaDelta: delta,
+          karmaYesterdayDelta: yesterday
+        });
         
         // Use the new logic to determine if yesterday's karma should be included
         return shouldIncludeYesterdayKarma() ? delta + yesterday : delta;
