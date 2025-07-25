@@ -18,6 +18,38 @@
       max-width: 700px;
       margin: 0 auto;
       line-height: 1.5;
+      position: relative;
+    }
+
+    .museum-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: linear-gradient(135deg, #222 0%, #111 100%);
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .museum-button:hover {
+      background: linear-gradient(135deg, #333 0%, #222 100%);
+      border-color: #444;
+      transform: translateY(-1px);
+    }
+
+    .museum-icon {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
     }
 
     h1 {
@@ -200,6 +232,7 @@
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s ease;
+      margin: 0 5px;
     }
 
     .copy-btn:hover {
@@ -224,9 +257,58 @@
       opacity: 1;
     }
 
+    .export-table {
+      background-color: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      margin-top: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .export-table.show {
+      display: block;
+    }
+
+    .export-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .export-table th,
+    .export-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #222;
+      font-size: 12px;
+    }
+
+    .export-table th {
+      background-color: #222;
+      font-weight: 600;
+      color: #fff;
+      position: sticky;
+      top: 0;
+    }
+
+    .export-table td {
+      color: #ccc;
+    }
+
+    .export-table tr:hover {
+      background-color: #0a0a0a;
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 16px;
+        padding-top: 60px; /* Make room for museum button */
+      }
+      
+      .museum-button {
+        top: 16px;
+        left: 16px;
       }
       
       h1 {
@@ -250,10 +332,26 @@
         font-size: 15px;
         padding: 3px 10px;
       }
+
+      .copy-btn {
+        margin: 5px 2px;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
     }
   </style>
 </head>
 <body>
+  <a href="history.html" class="museum-button">
+    <svg class="museum-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M2 3h20l-2 18H4L2 3z"/>
+      <path d="M7 8v9"/>
+      <path d="M12 8v9"/>
+      <path d="M17 8v9"/>
+    </svg>
+    Museum
+  </a>
+
   <h1>RST Live</h1>
   <div class="subtitle">made by @tomfc, ran by @barry</div>
   
@@ -273,6 +371,7 @@
       <div class="player-list" id="amateur-list"></div>
       <div class="copy-button">
         <button class="copy-btn" onclick="copyTopN('amateur')">Copy Top Players</button>
+        <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
         <div class="copy-feedback" id="amateur-feedback">Copied to clipboard!</div>
       </div>
     </div>
@@ -285,11 +384,26 @@
       <div class="player-list" id="pro-list"></div>
       <div class="copy-button">
         <button class="copy-btn" onclick="copyTopN('pro')">Copy Top Players</button>
+        <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
         <div class="copy-feedback" id="pro-feedback">Copied to clipboard!</div>
       </div>
-      <div class="copy-button">
-        <button class="copy-btn" onclick="exportAllScores()">Export Scores </button>
     </div>
+  </div>
+
+  <div class="export-table" id="export-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>User ID</th>
+          <th>Seed</th>
+          <th>Day 1</th>
+          <th>Day 1+2</th>
+        </tr>
+      </thead>
+      <tbody id="export-table-body">
+      </tbody>
+    </table>
   </div>
 
   <script>
@@ -314,6 +428,9 @@
         content.classList.remove('active');
       });
       document.getElementById(`${tabName}-tab`).classList.add('active');
+
+      // Hide export table when switching tabs
+      document.getElementById('export-table').classList.remove('show');
     }
 
     function copyTopN(bracket) {
@@ -378,11 +495,12 @@
       });
     }
 
-    function exportAllScores() {
+    function exportScoresTable() {
       // Combine both amateur and pro data
       const allData = [...amateurData, ...proData];
       
       if (allData.length === 0) {
+        alert('No data available to export');
         return;
       }
 
@@ -393,8 +511,13 @@
         return usernameA.localeCompare(usernameB);
       });
 
-      let output = '';
+      const tableBody = document.getElementById('export-table-body');
+      const exportTable = document.getElementById('export-table');
       
+      // Clear existing rows
+      tableBody.innerHTML = '';
+      
+      // Populate table
       sortedData.forEach(player => {
         const userId = player['user id'];
         const username = player['user @'];
@@ -407,91 +530,22 @@
         const day1 = Math.round(karmaData.karmaYesterdayDelta);
         const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
         
-        output += `${username}${userId}${seed}${day1}${day1Plus2}`;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${username}</td>
+          <td>${userId}</td>
+          <td>${seed}</td>
+          <td>${day1}</td>
+          <td>${day1Plus2}</td>
+        `;
+        tableBody.appendChild(row);
       });
 
-      // Copy to clipboard
-      navigator.clipboard.writeText(output).then(() => {
-        // Show feedback
-        const feedback = document.getElementById('export-feedback');
-        feedback.classList.add('show');
-        setTimeout(() => {
-          feedback.classList.remove('show');
-        }, 2000);
-      }).catch(err => {
-        console.error('Failed to copy: ', err);
-        // Fallback for browsers that don't support clipboard API
-        const textArea = document.createElement('textarea');
-        textArea.value = output;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        const feedback = document.getElementById('export-feedback');
-        feedback.classList.add('show');
-        setTimeout(() => {
-          feedback.classList.remove('show');
-        }, 2000);
-      });
-    }
-
-    function exportAllScores() {
-      // Combine both amateur and pro data
-      const allData = [...amateurData, ...proData];
+      // Show the table
+      exportTable.classList.add('show');
       
-      if (allData.length === 0) {
-        return;
-      }
-
-      // Sort by username alphabetically for export
-      const sortedData = allData.sort((a, b) => {
-        const usernameA = a['user @'].toLowerCase();
-        const usernameB = b['user @'].toLowerCase();
-        return usernameA.localeCompare(usernameB);
-      });
-
-      let output = '';
-      
-      sortedData.forEach(player => {
-        const userId = player['user id'];
-        const username = player['user @'];
-        const seed = player.seed;
-        
-        // Get raw karma data
-        const karmaData = karmaDataMap.get(userId);
-        if (!karmaData) return;
-        
-        const day1 = Math.round(karmaData.karmaYesterdayDelta);
-        const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
-        
-        output += `${username}${userId}${seed}${day1}${day1Plus2}`;
-      });
-
-      // Copy to clipboard
-      navigator.clipboard.writeText(output).then(() => {
-        // Show feedback
-        const feedback = document.getElementById('export-feedback');
-        feedback.classList.add('show');
-        setTimeout(() => {
-          feedback.classList.remove('show');
-        }, 2000);
-      }).catch(err => {
-        console.error('Failed to copy: ', err);
-        // Fallback for browsers that don't support clipboard API
-        const textArea = document.createElement('textarea');
-        textArea.value = output;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        const feedback = document.getElementById('export-feedback');
-        feedback.classList.add('show');
-        setTimeout(() => {
-          feedback.classList.remove('show');
-        }, 2000);
-      });
+      // Scroll to table
+      exportTable.scrollIntoView({ behavior: 'smooth' });
     }
 
     // Function to check if we should include yesterday's karma
