@@ -404,6 +404,10 @@
       <tbody id="export-table-body">
       </tbody>
     </table>
+    <div class="copy-button">
+      <button class="copy-btn" onclick="copyExportTable()">Copy Table to Clipboard</button>
+      <div class="copy-feedback" id="export-feedback">Copied to clipboard!</div>
+    </div>
   </div>
 
   <script>
@@ -491,6 +495,66 @@
         setTimeout(() => {
           feedback.classList.remove('show');
           feedback.textContent = 'Copied to clipboard!';
+        }, 2000);
+      });
+    }
+
+    function copyExportTable() {
+      // Combine both amateur and pro data
+      const allData = [...amateurData, ...proData];
+      
+      if (allData.length === 0) {
+        alert('No data available to copy');
+        return;
+      }
+
+      // Sort by username alphabetically
+      const sortedData = allData.sort((a, b) => {
+        const usernameA = a['user @'].toLowerCase();
+        const usernameB = b['user @'].toLowerCase();
+        return usernameA.localeCompare(usernameB);
+      });
+
+      // Create tab-separated values format for easy pasting into spreadsheets
+      let output = 'Username\tUser ID\tSeed\tDay 1\tDay 1+2\n';
+      
+      sortedData.forEach(player => {
+        const userId = player['user id'];
+        const username = player['user @'];
+        const seed = player.seed;
+        
+        // Get raw karma data
+        const karmaData = karmaDataMap.get(userId);
+        if (!karmaData) return;
+        
+        const day1 = Math.round(karmaData.karmaYesterdayDelta);
+        const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
+        
+        output += `${username}\t${userId}\t${seed}\t${day1}\t${day1Plus2}\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(output.trim()).then(() => {
+        // Show feedback
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = output.trim();
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
         }, 2000);
       });
     }
