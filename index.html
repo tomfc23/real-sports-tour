@@ -287,6 +287,8 @@
         <button class="copy-btn" onclick="copyTopN('pro')">Copy Top Players</button>
         <div class="copy-feedback" id="pro-feedback">Copied to clipboard!</div>
       </div>
+      <div class="copy-button">
+        <button class="copy-btn" onclick="exportAllScores()">Export Scores </button>
     </div>
   </div>
 
@@ -372,6 +374,64 @@
         setTimeout(() => {
           feedback.classList.remove('show');
           feedback.textContent = 'Copied to clipboard!';
+        }, 2000);
+      });
+    }
+
+    function exportAllScores() {
+      // Combine both amateur and pro data
+      const allData = [...amateurData, ...proData];
+      
+      if (allData.length === 0) {
+        return;
+      }
+
+      // Sort by username alphabetically for export
+      const sortedData = allData.sort((a, b) => {
+        const usernameA = a['user @'].toLowerCase();
+        const usernameB = b['user @'].toLowerCase();
+        return usernameA.localeCompare(usernameB);
+      });
+
+      let output = '';
+      
+      sortedData.forEach(player => {
+        const userId = player['user id'];
+        const username = player['user @'];
+        const seed = player.seed;
+        
+        // Get raw karma data
+        const karmaData = karmaDataMap.get(userId);
+        if (!karmaData) return;
+        
+        const day1 = Math.round(karmaData.karmaYesterdayDelta);
+        const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
+        
+        output += `${username}${userId}${seed}${day1}${day1Plus2}`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(output).then(() => {
+        // Show feedback
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = output;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
         }, 2000);
       });
     }
