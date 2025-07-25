@@ -90,7 +90,24 @@
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
     const WORKER_URL = 'https://rst.tomfconreal.workers.dev/';
     const loadingEl = document.getElementById('loading');
-    const isFridayOrSunday = [0, 5].includes(new Date().getDay());
+
+    // Function to check if we should include yesterday's karma
+    function shouldIncludeYesterdayKarma() {
+      const now = new Date();
+      
+      // Convert to EST (UTC-5) or EDT (UTC-4)
+      // This is a simplified approach - for production you might want to use a proper timezone library
+      const estOffset = -5; // EST is UTC-5, but you may need to adjust for EDT (UTC-4) during daylight saving time
+      const estTime = new Date(now.getTime() + (estOffset * 60 * 60 * 1000));
+      
+      const day = estTime.getDay(); // 0 = Sunday, 4 = Thursday
+      const hour = estTime.getHours();
+      
+      // Include yesterday's karma if:
+      // - It's Thursday (day 4) and it's 7 AM or later
+      // - It's Sunday (day 0) and it's 7 AM or later
+      return (day === 4 && hour >= 7) || (day === 0 && hour >= 7);
+    }
 
     function parseCSV(text) {
       const lines = text.trim().split('\n');
@@ -120,7 +137,9 @@
         const json = await res.json();
         const delta = parseFloat(json?.stats?.karmaDelta || 0);
         const yesterday = parseFloat(json?.stats?.karmaYesterdayDelta || 0);
-        return isFridayOrSunday ? delta + yesterday : delta;
+        
+        // Use the new logic to determine if yesterday's karma should be included
+        return shouldIncludeYesterdayKarma() ? delta + yesterday : delta;
       } catch {
         return 0;
       }
