@@ -25,7 +25,7 @@
       margin-bottom: 32px;
     }
 
-    .back-button {
+    .back-button, .home-button {
       position: absolute;
       left: 0;
       top: 50%;
@@ -42,12 +42,12 @@
       display: none;
     }
 
-    .back-button:hover {
+    .back-button:hover, .home-button:hover {
       background: linear-gradient(135deg, #444 0%, #333 100%);
       transform: translateY(-50%) translateY(-1px);
     }
 
-    .back-button.show {
+    .back-button.show, .home-button.show {
       display: block;
     }
 
@@ -311,13 +311,13 @@
         padding: 8px 4px;
       }
 
-      .back-button {
+      .back-button, .home-button {
         position: static;
         transform: none;
         margin-bottom: 16px;
       }
 
-      .back-button:hover {
+      .back-button:hover, .home-button:hover {
         transform: translateY(-1px);
       }
     }
@@ -326,6 +326,7 @@
 <body>
   <div class="header">
     <button class="back-button" id="back-button" onclick="goBack()">← Back</button>
+    <button class="home-button" id="home-button" onclick="goHome()">🏠 Home</button>
     <h1>RST Tournament Museum</h1>
     <div class="subtitle">Historical Tournament Data Archive</div>
   </div>
@@ -448,10 +449,21 @@
       });
     }
 
+    function goHome() {
+      // Reset to initial state
+      document.getElementById('tournament-display').style.display = 'none';
+      document.getElementById('tournament-selector').style.display = 'block';
+      document.getElementById('back-button').classList.remove('show');
+      document.getElementById('home-button').classList.remove('show');
+      document.getElementById('tournament-select').value = '';
+      currentTournament = null;
+    }
+
     function goBack() {
       document.getElementById('tournament-display').style.display = 'none';
       document.getElementById('tournament-selector').style.display = 'block';
       document.getElementById('back-button').classList.remove('show');
+      document.getElementById('home-button').classList.add('show');
       document.getElementById('tournament-select').value = '';
       currentTournament = null;
     }
@@ -521,6 +533,7 @@
       if (!tournamentNum) {
         document.getElementById('tournament-display').style.display = 'none';
         document.getElementById('back-button').classList.remove('show');
+        document.getElementById('home-button').classList.add('show');
         return;
       }
 
@@ -528,8 +541,9 @@
       
       if (currentTournament.length === 0) return;
 
-      // Show back button
+      // Show back button and hide home button
       document.getElementById('back-button').classList.add('show');
+      document.getElementById('home-button').classList.remove('show');
 
       // Update tournament info
       const startDate = currentTournament[0]['start date'];
@@ -644,8 +658,10 @@
         const response = await axios.get(CSV_URL);
         tournamentData = parseCSV(response.data);
 
-        // Get unique tournaments
-        const tournaments = [...new Set(tournamentData.map(p => p['tournament #']))].sort();
+        // Get unique tournaments and filter out header/invalid entries
+        const tournaments = [...new Set(tournamentData.map(p => p['tournament #']))]
+          .filter(t => t && t !== 'tournament #' && !isNaN(parseInt(t)))
+          .sort((a, b) => parseInt(a) - parseInt(b));
         
         const select = document.getElementById('tournament-select');
         tournaments.forEach(tournament => {
@@ -657,6 +673,7 @@
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('tournament-selector').style.display = 'block';
+        document.getElementById('home-button').classList.add('show');
 
       } catch (error) {
         console.error('Error loading tournament data:', error);
