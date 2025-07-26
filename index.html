@@ -753,7 +753,20 @@
       const estTime = new Date(now.getTime() + (estOffset * 60 * 60 * 1000));
       
       const day = estTime.getDay(); // 0 = Sunday, 5 = Friday
-      return day === 0 || day === 5; // Sunday or Friday
+      const hour = estTime.getHours();
+      
+      // Show delta only if:
+      // - It's Friday (day 5) and it's 7 AM or later, until Saturday 7 AM
+      // - It's Saturday (day 6) before 7 AM
+      // - It's Sunday (day 0) and it's 7 AM or later, until Monday 7 AM
+      // - It's Monday (day 1) before 7 AM
+      
+      if (day === 5 && hour >= 7) return true; // Friday 7 AM onwards
+      if (day === 6 && hour < 7) return true;  // Saturday before 7 AM
+      if (day === 0 && hour >= 7) return true; // Sunday 7 AM onwards
+      if (day === 1 && hour < 7) return true;  // Monday before 7 AM
+      
+      return false;
     }
 
     // Function to check if we should include yesterday's karma
