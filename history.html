@@ -259,6 +259,62 @@
       font-style: italic;
     }
 
+    .hall-of-fame-section {
+      padding: 20px;
+    }
+
+    .winners-content {
+      background: linear-gradient(135deg, #111 0%, #0a0a0a 100%);
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .placement-group {
+      margin-bottom: 24px;
+    }
+
+    .placement-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .placement-icon {
+      margin-right: 8px;
+      font-size: 18px;
+    }
+
+    .winner-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      margin-bottom: 4px;
+      background-color: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+    }
+
+    .winner-item:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .winner-name {
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .winner-count {
+      font-size: 12px;
+      color: #888;
+      background-color: #333;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
     .export-section {
       margin-top: 32px;
       text-align: center;
@@ -320,6 +376,11 @@
       .back-button:hover, .home-button:hover {
         transform: translateY(-1px);
       }
+
+      .hall-of-fame-section > div {
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
+      }
     }
   </style>
 </head>
@@ -367,6 +428,7 @@
       <button class="bracket-tab active" onclick="switchBracket('amateur')">Amateur</button>
       <button class="bracket-tab" onclick="switchBracket('pro')">Pro</button>
       <button class="bracket-tab" onclick="switchBracket('all')">All Players</button>
+      <button class="bracket-tab" onclick="switchBracket('hall-of-fame')">Hall of Fame</button>
     </div>
 
     <div id="amateur-bracket" class="bracket-content active">
@@ -421,6 +483,24 @@
       </table>
     </div>
 
+    <div id="hall-of-fame-bracket" class="bracket-content">
+      <div class="hall-of-fame-section">
+        <h3 style="text-align: center; margin-bottom: 24px; color: #fff; font-weight: 500;">Tournament Legends</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px;">
+          <div class="bracket-winners">
+            <h4 style="text-align: center; margin-bottom: 16px; color: #ccc; font-weight: 500;">Pro Bracket Champions</h4>
+            <div id="pro-winners-content" class="winners-content"></div>
+          </div>
+          
+          <div class="bracket-winners">
+            <h4 style="text-align: center; margin-bottom: 16px; color: #ccc; font-weight: 500;">Amateur Bracket Champions</h4>
+            <div id="amateur-winners-content" class="winners-content"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="export-section">
       <button class="export-btn" onclick="exportCurrentView()">Export Current View</button>
       <button class="export-btn" onclick="exportAllData()">Export All Data</button>
@@ -430,8 +510,12 @@
 
   <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjNNlKuRrsEV4Dgredtg3hyrNUai_SNnxzuRmAOwGuAK06Tcf1dyuuJTzLnE3M662tMFPk08WJ-OLg/pub?output=csv';
+    const PRO_WINNERS_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRza0bAFlUueNfncMTBcAb204CT6tz2xPMPNJyXV0w0PVQ3dUBc6xT1r_Zd1ZepLdQ_DvpmuaqDSxts/pub?gid=0&single=true&output=csv';
+    const AMATEUR_WINNERS_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRza0bAFlUueNfncMTBcAb204CT6tz2xPMPNJyXV0w0PVQ3dUBc6xT1r_Zd1ZepLdQ_DvpmuaqDSxts/pub?gid=1426847055&single=true&output=csv';
     
     let tournamentData = [];
+    let proWinnersData = [];
+    let amateurWinnersData = [];
     let currentTournament = null;
     let currentBracket = 'amateur';
 
@@ -444,6 +528,39 @@
         headers.forEach((h, i) => obj[h] = values[i] || '');
         return obj;
       });
+    }
+
+    function parseWinnersCSV(text) {
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      const data = { first: [], second: [], third: [] };
+      
+      lines.slice(1).forEach(line => {
+        const values = line.split(',').map(v => v.trim()).filter(v => v);
+        if (values[0]) {
+          const match = values[0].match(/^(@\/[\w\d_-]+)\s*-\s*(\d+)$/);
+          if (match) {
+            const [, username, count] = match;
+            data.first.push({ username: username.replace('@/', ''), count: parseInt(count) });
+          }
+        }
+        if (values[1]) {
+          const match = values[1].match(/^(@\/[\w\d_-]+)\s*-\s*(\d+)$/);
+          if (match) {
+            const [, username, count] = match;
+            data.second.push({ username: username.replace('@/', ''), count: parseInt(count) });
+          }
+        }
+        if (values[2]) {
+          const match = values[2].match(/^(@\/[\w\d_-]+)\s*-\s*(\d+)$/);
+          if (match) {
+            const [, username, count] = match;
+            data.third.push({ username: username.replace('@/', ''), count: parseInt(count) });
+          }
+        }
+      });
+      
+      return data;
     }
 
     function goHome() {
@@ -479,6 +596,11 @@
         content.classList.remove('active');
       });
       document.getElementById(`${bracket}-bracket`).classList.add('active');
+
+      // Load Hall of Fame data if needed
+      if (bracket === 'hall-of-fame') {
+        displayHallOfFame();
+      }
     }
 
     function formatScore(score) {
@@ -503,6 +625,74 @@
       else if (place === 3) className = 'placement-3';
       
       return `<span class="placement-cell ${className}">${place}</span>`;
+    }
+
+    function displayHallOfFame() {
+      displayWinners('pro-winners-content', proWinnersData);
+      displayWinners('amateur-winners-content', amateurWinnersData);
+    }
+
+    function displayWinners(containerId, winnersData) {
+      const container = document.getElementById(containerId);
+      if (!winnersData || (!winnersData.first.length && !winnersData.second.length && !winnersData.third.length)) {
+        container.innerHTML = '<div class="empty-state">No winners data available</div>';
+        return;
+      }
+
+      let html = '';
+      
+      if (winnersData.first.length > 0) {
+        html += `
+          <div class="placement-group">
+            <div class="placement-header placement-1">
+              <span class="placement-icon">🥇</span>
+              <span>1st Place Champions</span>
+            </div>
+            ${winnersData.first.map(winner => `
+              <div class="winner-item">
+                <span class="winner-name">@${winner.username}</span>
+                <span class="winner-count">${winner.count} win${winner.count > 1 ? 's' : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      if (winnersData.second.length > 0) {
+        html += `
+          <div class="placement-group">
+            <div class="placement-header placement-2">
+              <span class="placement-icon">🥈</span>
+              <span>2nd Place Finishers</span>
+            </div>
+            ${winnersData.second.map(winner => `
+              <div class="winner-item">
+                <span class="winner-name">@${winner.username}</span>
+                <span class="winner-count">${winner.count} finish${winner.count > 1 ? 'es' : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      if (winnersData.third.length > 0) {
+        html += `
+          <div class="placement-group">
+            <div class="placement-header placement-3">
+              <span class="placement-icon">🥉</span>
+              <span>3rd Place Finishers</span>
+            </div>
+            ${winnersData.third.map(winner => `
+              <div class="winner-item">
+                <span class="winner-name">@${winner.username}</span>
+                <span class="winner-count">${winner.count} finish${winner.count > 1 ? 'es' : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
     }
 
     function createPlayerRow(player, rank, showBracket = false) {
@@ -651,8 +841,16 @@
 
     async function loadTournamentData() {
       try {
-        const response = await axios.get(CSV_URL);
-        tournamentData = parseCSV(response.data);
+        // Load all data in parallel
+        const [tournamentResponse, proWinnersResponse, amateurWinnersResponse] = await Promise.all([
+          axios.get(CSV_URL),
+          axios.get(PRO_WINNERS_CSV),
+          axios.get(AMATEUR_WINNERS_CSV)
+        ]);
+
+        tournamentData = parseCSV(tournamentResponse.data);
+        proWinnersData = parseWinnersCSV(proWinnersResponse.data);
+        amateurWinnersData = parseWinnersCSV(amateurWinnersResponse.data);
 
         // Get unique tournaments and filter out header/invalid entries
         const tournaments = [...new Set(tournamentData.map(p => p['tournament #']))]
