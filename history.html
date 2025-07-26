@@ -530,33 +530,56 @@
 
     function parseWinnersCSV(text) {
       const lines = text.trim().split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
       const data = { first: [], second: [], third: [] };
       
-      lines.slice(1).forEach(line => {
-        const values = line.split(',').map(v => v.trim()).filter(v => v);
-        if (values[0]) {
+      // Skip the header row and process each subsequent row
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        // Handle CSV parsing with potential commas in quoted fields
+        for (let j = 0; j < line.length; j++) {
+          const char = line[j];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim()); // Add the last value
+        
+        // Process 1st place (column 0)
+        if (values[0] && values[0] !== '') {
           const match = values[0].match(/^(@\/[\w\d_-]+)\s*-\s*(\d+)$/);
           if (match) {
             const [, username, count] = match;
             data.first.push({ username: username.replace('@/', ''), count: parseInt(count) });
           }
         }
-        if (values[1]) {
+        
+        // Process 2nd place (column 1)
+        if (values[1] && values[1] !== '') {
           const match = values[1].match(/^(@\/[\w\d_-]+)\s*-\s*(\d+)$/);
           if (match) {
             const [, username, count] = match;
             data.second.push({ username: username.replace('@/', ''), count: parseInt(count) });
           }
         }
-        if (values[2]) {
+        
+        // Process 3rd place (column 2)
+        if (values[2] && values[2] !== '') {
           const match = values[2].match(/^(@\/[\w\d_-]+)\s*-\s*(\d+)$/);
           if (match) {
             const [, username, count] = match;
             data.third.push({ username: username.replace('@/', ''), count: parseInt(count) });
           }
         }
-      });
+      }
       
       return data;
     }
