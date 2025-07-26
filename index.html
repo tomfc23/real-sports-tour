@@ -210,6 +210,29 @@
       text-align: center;
     }
 
+    .karma-details {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .karma-delta {
+      font-size: 12px;
+      color: #888;
+      background-color: #1a1a1a;
+      padding: 2px 8px;
+      border-radius: 8px;
+    }
+
+    .karma-rank {
+      font-size: 11px;
+      color: #666;
+      background-color: #0f0f0f;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+
     .empty-state {
       text-align: center;
       color: #666;
@@ -220,6 +243,42 @@
     .copy-button {
       margin-top: 24px;
       text-align: center;
+    }
+
+    .copy-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .copy-type-selector {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .copy-type-btn {
+      background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+      border: 1px solid #2a2a2a;
+      color: #ccc;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-type-btn:hover {
+      border-color: #444;
+    }
+
+    .copy-type-btn.active {
+      background: linear-gradient(135deg, #333 0%, #222 100%);
+      border-color: #555;
+      color: #fff;
     }
 
     .copy-btn {
@@ -338,6 +397,15 @@
         padding: 8px 12px;
         font-size: 12px;
       }
+
+      .copy-type-selector {
+        gap: 4px;
+      }
+
+      .copy-type-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+      }
     }
   </style>
 </head>
@@ -364,8 +432,17 @@
       </div>
       <div class="player-list" id="amateur-list"></div>
       <div class="copy-button">
-        <button class="copy-btn" onclick="copyTopN('amateur')">Copy Top Players</button>
-        <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
+        <div class="copy-controls">
+          <div class="copy-type-selector">
+            <button class="copy-type-btn active" data-type="total" onclick="setCopyType('total')">Total Score</button>
+            <button class="copy-type-btn" data-type="today" onclick="setCopyType('today')">Today's Score</button>
+            <button class="copy-type-btn" data-type="rank" onclick="setCopyType('rank')">Today's Rank</button>
+          </div>
+          <div>
+            <button class="copy-btn" onclick="copyTopN('amateur')">Copy Top Players</button>
+            <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
+          </div>
+        </div>
         <div class="copy-feedback" id="amateur-feedback">Copied to clipboard!</div>
       </div>
     </div>
@@ -377,8 +454,17 @@
       </div>
       <div class="player-list" id="pro-list"></div>
       <div class="copy-button">
-        <button class="copy-btn" onclick="copyTopN('pro')">Copy Top Players</button>
-        <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
+        <div class="copy-controls">
+          <div class="copy-type-selector">
+            <button class="copy-type-btn active" data-type="total" onclick="setCopyType('total')">Total Score</button>
+            <button class="copy-type-btn" data-type="today" onclick="setCopyType('today')">Today's Score</button>
+            <button class="copy-type-btn" data-type="rank" onclick="setCopyType('rank')">Today's Rank</button>
+          </div>
+          <div>
+            <button class="copy-btn" onclick="copyTopN('pro')">Copy Top Players</button>
+            <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
+          </div>
+        </div>
         <div class="copy-feedback" id="pro-feedback">Copied to clipboard!</div>
       </div>
     </div>
@@ -393,6 +479,7 @@
           <th>Seed</th>
           <th>Day 1</th>
           <th>Day 1+2</th>
+          <th>Day Rank</th>
         </tr>
       </thead>
       <tbody id="export-table-body">
@@ -413,6 +500,7 @@
     let amateurData = [];
     let proData = [];
     let karmaDataMap = new Map(); // Store raw karma data by user ID
+    let currentCopyType = 'total'; // Default copy type
 
     function switchTab(tabName) {
       // Update button states
@@ -431,6 +519,16 @@
       document.getElementById('export-table').classList.remove('show');
     }
 
+    function setCopyType(type) {
+      currentCopyType = type;
+      document.querySelectorAll('.copy-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelectorAll(`[data-type="${type}"]`).forEach(btn => {
+        btn.classList.add('active');
+      });
+    }
+
     function copyTopN(bracket) {
       const data = bracket === 'amateur' ? amateurData : proData;
       
@@ -438,8 +536,33 @@
         return;
       }
 
+      // Sort data based on current copy type
+      let sortedData = [...data];
+      let valueLabel = '';
+      
+      switch (currentCopyType) {
+        case 'today':
+          sortedData.sort((a, b) => b.karmaDelta - a.karmaDelta);
+          valueLabel = 'Today\'s Score';
+          break;
+        case 'rank':
+          // Sort by rank (lower is better, but handle missing ranks)
+          sortedData.sort((a, b) => {
+            const rankA = a.karmaDayRank || Infinity;
+            const rankB = b.karmaDayRank || Infinity;
+            return rankA - rankB;
+          });
+          valueLabel = 'Today\'s Rank';
+          break;
+        case 'total':
+        default:
+          sortedData.sort((a, b) => b.karma - a.karma);
+          valueLabel = 'Total Score';
+          break;
+      }
+
       // Prompt user for number of players to copy
-      const maxPlayers = data.length;
+      const maxPlayers = sortedData.length;
       const defaultCount = Math.min(5, maxPlayers);
       const userInput = prompt(`How many top players would you like to copy? (1-${maxPlayers})`, defaultCount);
       
@@ -454,20 +577,32 @@
         return;
       }
 
-      const topN = data.slice(0, count);
+      const topN = sortedData.slice(0, count);
       const bracketName = bracket === 'amateur' ? 'amateurs' : 'pros';
-      let output = `Today's scores are in! (${bracketName})\n-\nTop ${count} Performance${count === 1 ? '' : 's'}:\n`;
+      let output = `Today's scores are in! (${bracketName})\n-\nTop ${count} ${valueLabel}${count === 1 ? '' : 's'}:\n`;
       
       topN.forEach((player, index) => {
-        const karma = Math.round(player.karma).toLocaleString();
-        output += `${index + 1}. @${player['user @']} - ${karma}\n`;
+        let value;
+        switch (currentCopyType) {
+          case 'today':
+            value = Math.round(player.karmaDelta).toLocaleString();
+            break;
+          case 'rank':
+            value = player.karmaDayRank ? `#${player.karmaDayRank}` : 'N/A';
+            break;
+          case 'total':
+          default:
+            value = Math.round(player.karma).toLocaleString();
+            break;
+        }
+        output += `${index + 1}. @${player['user @']} - ${value}\n`;
       });
 
       // Copy to clipboard
       navigator.clipboard.writeText(output.trim()).then(() => {
         // Show feedback
         const feedback = document.getElementById(`${bracket}-feedback`);
-        feedback.textContent = `Copied top ${count} to clipboard!`;
+        feedback.textContent = `Copied top ${count} ${valueLabel.toLowerCase()} to clipboard!`;
         feedback.classList.add('show');
         setTimeout(() => {
           feedback.classList.remove('show');
@@ -484,7 +619,7 @@
         document.body.removeChild(textArea);
         
         const feedback = document.getElementById(`${bracket}-feedback`);
-        feedback.textContent = `Copied top ${count} to clipboard!`;
+        feedback.textContent = `Copied top ${count} ${valueLabel.toLowerCase()} to clipboard!`;
         feedback.classList.add('show');
         setTimeout(() => {
           feedback.classList.remove('show');
@@ -510,7 +645,7 @@
       });
 
       // Create tab-separated values format for easy pasting into spreadsheets
-      let output = 'Username\tUser ID\tSeed\tDay 1\tDay 1+2\n';
+      let output = 'Username\tUser ID\tSeed\tDay 1\tDay 1+2\tDay Rank\n';
       
       sortedData.forEach(player => {
         const userId = player['user id'];
@@ -521,10 +656,11 @@
         const karmaData = karmaDataMap.get(userId);
         if (!karmaData) return;
         
-        const day1 = Math.round(karmaData.karmaYesterdayDelta);
+        const day1 = Math.round(karmaData.karmaDelta);
         const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
+        const dayRank = karmaData.karmaDayRank || 'N/A';
         
-        output += `${username}\t${userId}\t${seed}\t${day1}\t${day1Plus2}\n`;
+        output += `${username}\t${userId}\t${seed}\t${day1}\t${day1Plus2}\t${dayRank}\n`;
       });
 
       // Copy to clipboard
@@ -585,8 +721,9 @@
         const karmaData = karmaDataMap.get(userId);
         if (!karmaData) return;
         
-        const day1 = Math.round(karmaData.karmaYesterdayDelta);
+        const day1 = Math.round(karmaData.karmaDelta);
         const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
+        const dayRank = karmaData.karmaDayRank || 'N/A';
         
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -595,6 +732,7 @@
           <td>${seed}</td>
           <td>${day1}</td>
           <td>${day1Plus2}</td>
+          <td>${dayRank}</td>
         `;
         tableBody.appendChild(row);
       });
@@ -604,6 +742,18 @@
       
       // Scroll to table
       exportTable.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Function to check if we should show delta only (Fridays and Sundays)
+    function shouldShowDeltaOnly() {
+      const now = new Date();
+      
+      // Convert to EST (UTC-5) or EDT (UTC-4)
+      const estOffset = -5; // EST is UTC-5, but you may need to adjust for EDT (UTC-4) during daylight saving time
+      const estTime = new Date(now.getTime() + (estOffset * 60 * 60 * 1000));
+      
+      const day = estTime.getDay(); // 0 = Sunday, 5 = Friday
+      return day === 0 || day === 5; // Sunday or Friday
     }
 
     // Function to check if we should include yesterday's karma
@@ -644,14 +794,38 @@
     }
 
     function createPlayerRow(user, karma, rank) {
+      const showDeltaOnly = shouldShowDeltaOnly();
+      const karmaData = karmaDataMap.get(user['user id']);
+      
       const div = document.createElement('div');
       div.className = 'player-card';
+      
+      let karmaDisplay = '';
+      if (showDeltaOnly && karmaData) {
+        // Show only karmaDelta on Fridays and Sundays
+        karmaDisplay = `
+          <div class="karma-details">
+            <span class="karma-value">${Math.round(karmaData.karmaDelta)}</span>
+            ${karmaData.karmaDayRank ? `<span class="karma-rank">Rank #${karmaData.karmaDayRank}</span>` : ''}
+          </div>
+        `;
+      } else {
+        // Show total karma with additional details
+        karmaDisplay = `
+          <div class="karma-details">
+            <span class="karma-value">${Math.round(karma)}</span>
+            ${karmaData ? `<span class="karma-delta">Today: ${Math.round(karmaData.karmaDelta)}</span>` : ''}
+            ${karmaData && karmaData.karmaDayRank ? `<span class="karma-rank">Rank #${karmaData.karmaDayRank}</span>` : ''}
+          </div>
+        `;
+      }
+      
       div.innerHTML = `
         <div class="player-info">
           <span class="player-rank">#${rank}</span>
           <span class="player-name">@${user['user @']}</span>
         </div>
-        <span class="karma-value">${Math.round(karma)}</span>
+        ${karmaDisplay}
       `;
       return div;
     }
@@ -663,11 +837,13 @@
         const json = await res.json();
         const delta = parseFloat(json?.stats?.karmaDelta || 0);
         const yesterday = parseFloat(json?.stats?.karmaYesterdayDelta || 0);
+        const dayRank = parseInt(json?.stats?.karmaDayRank) || null;
         
         // Store the raw data for export
         karmaDataMap.set(userId, {
           karmaDelta: delta,
-          karmaYesterdayDelta: yesterday
+          karmaYesterdayDelta: yesterday,
+          karmaDayRank: dayRank
         });
         
         // Use the new logic to determine if yesterday's karma should be included
@@ -719,7 +895,13 @@
           10,
           async (user) => {
             const karma = await fetchKarma(user['user id']);
-            return { ...user, karma };
+            const karmaData = karmaDataMap.get(user['user id']);
+            return { 
+              ...user, 
+              karma,
+              karmaDelta: karmaData?.karmaDelta || 0,
+              karmaDayRank: karmaData?.karmaDayRank || null
+            };
           },
           updateProgress
         );
