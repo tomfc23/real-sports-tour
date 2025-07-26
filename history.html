@@ -398,6 +398,23 @@
     <select id="tournament-select" onchange="displayTournament()">
       <option value="">Select a tournament...</option>
     </select>
+    
+    <!-- Hall of Fame Section on Selection Page -->
+    <div class="hall-of-fame-section" style="margin-top: 32px;">
+      <h3 style="text-align: center; margin-bottom: 24px; color: #fff; font-weight: 500;">Hall of Fame - Tournament Legends</h3>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px;">
+        <div class="bracket-winners">
+          <h4 style="text-align: center; margin-bottom: 16px; color: #ccc; font-weight: 500;">Pro Bracket Champions</h4>
+          <div id="selection-pro-winners-content" class="winners-content"></div>
+        </div>
+        
+        <div class="bracket-winners">
+          <h4 style="text-align: center; margin-bottom: 16px; color: #ccc; font-weight: 500;">Amateur Bracket Champions</h4>
+          <div id="selection-amateur-winners-content" class="winners-content"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="tournament-display" style="display: none;">
@@ -428,7 +445,6 @@
       <button class="bracket-tab active" onclick="switchBracket('amateur')">Amateur</button>
       <button class="bracket-tab" onclick="switchBracket('pro')">Pro</button>
       <button class="bracket-tab" onclick="switchBracket('all')">All Players</button>
-      <button class="bracket-tab" onclick="switchBracket('hall-of-fame')">Hall of Fame</button>
     </div>
 
     <div id="amateur-bracket" class="bracket-content active">
@@ -481,24 +497,6 @@
         </thead>
         <tbody id="all-tbody"></tbody>
       </table>
-    </div>
-
-    <div id="hall-of-fame-bracket" class="bracket-content">
-      <div class="hall-of-fame-section">
-        <h3 style="text-align: center; margin-bottom: 24px; color: #fff; font-weight: 500;">Tournament Legends</h3>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px;">
-          <div class="bracket-winners">
-            <h4 style="text-align: center; margin-bottom: 16px; color: #ccc; font-weight: 500;">Pro Bracket Champions</h4>
-            <div id="pro-winners-content" class="winners-content"></div>
-          </div>
-          
-          <div class="bracket-winners">
-            <h4 style="text-align: center; margin-bottom: 16px; color: #ccc; font-weight: 500;">Amateur Bracket Champions</h4>
-            <div id="amateur-winners-content" class="winners-content"></div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="export-section">
@@ -596,11 +594,6 @@
         content.classList.remove('active');
       });
       document.getElementById(`${bracket}-bracket`).classList.add('active');
-
-      // Load Hall of Fame data if needed
-      if (bracket === 'hall-of-fame') {
-        displayHallOfFame();
-      }
     }
 
     function formatScore(score) {
@@ -628,8 +621,8 @@
     }
 
     function displayHallOfFame() {
-      displayWinners('pro-winners-content', proWinnersData);
-      displayWinners('amateur-winners-content', amateurWinnersData);
+      displayWinners('selection-pro-winners-content', proWinnersData);
+      displayWinners('selection-amateur-winners-content', amateurWinnersData);
     }
 
     function displayWinners(containerId, winnersData) {
@@ -868,6 +861,9 @@
         document.getElementById('loading').style.display = 'none';
         document.getElementById('tournament-selector').style.display = 'block';
         document.getElementById('home-button').classList.add('show');
+
+        // Display Hall of Fame on the selection page
+        displayHallOfFame();
 
       } catch (error) {
         console.error('Error loading tournament data:', error);
