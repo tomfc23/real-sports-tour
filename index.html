@@ -744,31 +744,6 @@
       exportTable.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // Function to check if we should show delta only (Fridays and Sundays)
-    function shouldShowDeltaOnly() {
-      const now = new Date();
-      
-      // Convert to EST (UTC-5) or EDT (UTC-4)
-      const estOffset = -5; // EST is UTC-5, but you may need to adjust for EDT (UTC-4) during daylight saving time
-      const estTime = new Date(now.getTime() + (estOffset * 60 * 60 * 1000));
-      
-      const day = estTime.getDay(); // 0 = Sunday, 5 = Friday
-      const hour = estTime.getHours();
-      
-      // Show delta only if:
-      // - It's Friday (day 5) and it's 7 AM or later, until Saturday 7 AM
-      // - It's Saturday (day 6) before 7 AM
-      // - It's Sunday (day 0) and it's 7 AM or later, until Monday 7 AM
-      // - It's Monday (day 1) before 7 AM
-      
-      if (day === 5 && hour >= 7) return true; // Friday 7 AM onwards
-      if (day === 6 && hour < 7) return true;  // Saturday before 7 AM
-      if (day === 0 && hour >= 7) return true; // Sunday 7 AM onwards
-      if (day === 1 && hour < 7) return true;  // Monday before 7 AM
-      
-      return false;
-    }
-
     // Function to check if we should include yesterday's karma
     function shouldIncludeYesterdayKarma() {
       const now = new Date();
@@ -807,27 +782,28 @@
     }
 
     function createPlayerRow(user, karma, rank) {
-      const showDeltaOnly = shouldShowDeltaOnly();
+      const shouldIncludeYesterday = shouldIncludeYesterdayKarma();
       const karmaData = karmaDataMap.get(user['user id']);
       
       const div = document.createElement('div');
       div.className = 'player-card';
       
       let karmaDisplay = '';
-      if (showDeltaOnly && karmaData) {
-        // Show only karmaDelta on Fridays and Sundays
+      if (shouldIncludeYesterday && karmaData) {
+        // During Friday 7AM-Saturday 7AM and Sunday 7AM-Monday 7AM periods
+        // Show the combined karma (delta + yesterday) as main value
         karmaDisplay = `
           <div class="karma-details">
-            <span class="karma-value">${Math.round(karmaData.karmaDelta)}</span>
+            <span class="karma-value">${Math.round(karma)}</span>
+            <span class="karma-delta">Today: ${Math.round(karmaData.karmaDelta)}</span>
             ${karmaData.karmaDayRank ? `<span class="karma-rank">Rank #${karmaData.karmaDayRank}</span>` : ''}
           </div>
         `;
       } else {
-        // Show total karma with additional details
+        // Show only today's delta during regular periods
         karmaDisplay = `
           <div class="karma-details">
-            <span class="karma-value">${Math.round(karma)}</span>
-            ${karmaData ? `<span class="karma-delta">Today: ${Math.round(karmaData.karmaDelta)}</span>` : ''}
+            <span class="karma-value">${karmaData ? Math.round(karmaData.karmaDelta) : Math.round(karma)}</span>
             ${karmaData && karmaData.karmaDayRank ? `<span class="karma-rank">Rank #${karmaData.karmaDayRank}</span>` : ''}
           </div>
         `;
