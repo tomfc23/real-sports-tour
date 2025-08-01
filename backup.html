@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RST Live</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+      line-height: 1.5;
+      position: relative;
+    }
+
+    .museum-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: linear-gradient(135deg, #222 0%, #111 100%);
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .museum-button:hover {
+      background: linear-gradient(135deg, #333 0%, #222 100%);
+      border-color: #444;
+      transform: translateY(-1px);
+    }
+
+    .museum-icon {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 300;
+      text-align: center;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 32px;
+    }
+
+    .loading {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: #888;
+      padding: 12px;
+      background-color: #111;
+      border-radius: 8px;
+    }
+
+    .tab-container {
+      margin-bottom: 24px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      border-bottom: 1px solid #333;
+      margin-bottom: 24px;
+    }
+
+    .tab-button {
+      flex: 1;
+      background: none;
+      border: none;
+      color: #666;
+      padding: 16px 20px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-button:hover {
+      color: #ccc;
+      background-color: #111;
+    }
+
+    .tab-button.active {
+      color: #fff;
+      border-bottom-color: #fff;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bracket-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .bracket-title {
+      font-size: 20px;
+      font-weight: 400;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .median {
+      font-size: 13px;
+      color: #888;
+      background-color: #111;
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: inline-block;
+    }
+
+    .player-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .player-card {
+      background: linear-gradient(135deg, #111 0%, #0a0a0a 100%);
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .player-card:hover {
+      border-color: #333;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+    }
+
+    .player-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    }
+
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .player-rank {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+      min-width: 20px;
+    }
+
+    .player-name {
+      font-weight: 500;
+      font-size: 15px;
+      color: #fff;
+    }
+
+    .karma-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      background-color: #222;
+      padding: 4px 12px;
+      border-radius: 12px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .karma-details {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .karma-delta {
+      font-size: 12px;
+      color: #888;
+      background-color: #1a1a1a;
+      padding: 2px 8px;
+      border-radius: 8px;
+    }
+
+    .karma-rank {
+      font-size: 11px;
+      color: #666;
+      background-color: #0f0f0f;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #666;
+      padding: 40px 20px;
+      font-style: italic;
+    }
+
+    .copy-button {
+      margin-top: 24px;
+      text-align: center;
+    }
+
+    .copy-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .copy-type-selector {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .copy-type-btn {
+      background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+      border: 1px solid #2a2a2a;
+      color: #ccc;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-type-btn:hover {
+      border-color: #444;
+    }
+
+    .copy-type-btn.active {
+      background: linear-gradient(135deg, #333 0%, #222 100%);
+      border-color: #555;
+      color: #fff;
+    }
+
+    .copy-btn {
+      background: linear-gradient(135deg, #222 0%, #111 100%);
+      border: 1px solid #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 0 5px;
+    }
+
+    .copy-btn:hover {
+      background: linear-gradient(135deg, #333 0%, #222 100%);
+      border-color: #444;
+      transform: translateY(-1px);
+    }
+
+    .copy-btn:active {
+      transform: translateY(0);
+    }
+
+    .copy-feedback {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .copy-feedback.show {
+      opacity: 1;
+    }
+
+    .export-table {
+      background-color: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      margin-top: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .export-table.show {
+      display: block;
+    }
+
+    .export-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .export-table th,
+    .export-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #222;
+      font-size: 12px;
+    }
+
+    .export-table th {
+      background-color: #222;
+      font-weight: 600;
+      color: #fff;
+      position: sticky;
+      top: 0;
+    }
+
+    .export-table td {
+      color: #ccc;
+    }
+
+    .export-table tr:hover {
+      background-color: #0a0a0a;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 16px;
+        padding-top: 60px; /* Make room for museum button */
+      }
+      
+      .museum-button {
+        top: 16px;
+        left: 16px;
+      }
+      
+      h1 {
+        font-size: 24px;
+      }
+      
+      .tab-button {
+        padding: 14px 16px;
+        font-size: 15px;
+      }
+      
+      .player-card {
+        padding: 14px 16px;
+      }
+      
+      .player-name {
+        font-size: 14px;
+      }
+      
+      .karma-value {
+        font-size: 15px;
+        padding: 3px 10px;
+      }
+
+      .copy-btn {
+        margin: 5px 2px;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+
+      .copy-type-selector {
+        gap: 4px;
+      }
+
+      .copy-type-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a href="history.html" class="museum-button">
+    Museum
+  </a>
+
+  <h1>RST Live</h1>
+  <div class="subtitle">made by @tomfc, ran by @barry</div>
+  
+  <div class="loading" id="loading">Loading...</div>
+
+  <div class="tab-container">
+    <div class="tab-buttons">
+      <button class="tab-button active" onclick="switchTab('amateur')">Amateur</button>
+      <button class="tab-button" onclick="switchTab('pro')">Pro</button>
+    </div>
+
+    <div id="amateur-tab" class="tab-content active">
+      <div class="bracket-header">
+        <div class="bracket-title">Amateur Bracket</div>
+        <div class="median" id="amateur-median"></div>
+      </div>
+      <div class="player-list" id="amateur-list"></div>
+      <div class="copy-button">
+        <div class="copy-controls">
+          <div class="copy-type-selector">
+            <button class="copy-type-btn active" data-type="total" onclick="setCopyType('total')">Total Score</button>
+            <button class="copy-type-btn" data-type="today" onclick="setCopyType('today')">Today's Score</button>
+            <button class="copy-type-btn" data-type="rank" onclick="setCopyType('rank')">Today's Rank</button>
+          </div>
+          <div>
+            <button class="copy-btn" onclick="copyTopN('amateur')">Copy Top Players</button>
+            <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
+          </div>
+        </div>
+        <div class="copy-feedback" id="amateur-feedback">Copied to clipboard!</div>
+      </div>
+    </div>
+
+    <div id="pro-tab" class="tab-content">
+      <div class="bracket-header">
+        <div class="bracket-title">Pro Bracket</div>
+        <div class="median" id="pro-median"></div>
+      </div>
+      <div class="player-list" id="pro-list"></div>
+      <div class="copy-button">
+        <div class="copy-controls">
+          <div class="copy-type-selector">
+            <button class="copy-type-btn active" data-type="total" onclick="setCopyType('total')">Total Score</button>
+            <button class="copy-type-btn" data-type="today" onclick="setCopyType('today')">Today's Score</button>
+            <button class="copy-type-btn" data-type="rank" onclick="setCopyType('rank')">Today's Rank</button>
+          </div>
+          <div>
+            <button class="copy-btn" onclick="copyTopN('pro')">Copy Top Players</button>
+            <button class="copy-btn" onclick="exportScoresTable()">Export Scores Table</button>
+          </div>
+        </div>
+        <div class="copy-feedback" id="pro-feedback">Copied to clipboard!</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="export-table" id="export-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>User ID</th>
+          <th>Seed</th>
+          <th>Day 1</th>
+          <th>Day 1+2</th>
+          <th>Day Rank</th>
+        </tr>
+      </thead>
+      <tbody id="export-table-body">
+      </tbody>
+    </table>
+    <div class="copy-button">
+      <button class="copy-btn" onclick="copyExportTable()">Copy Table to Clipboard</button>
+      <div class="copy-feedback" id="export-feedback">Copied to clipboard!</div>
+    </div>
+  </div>
+
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5_4iMe0s46WHziXgAcLGkS7VFMBaNLXndPcpT20b7YSaUTRz_2BTr6NC24XlRF3oHSZAm2fi-RrHV/pub?output=csv';
+    const WORKER_URL = 'https://rst.tomfconreal.workers.dev/';
+    const loadingEl = document.getElementById('loading');
+
+    // Store the sorted data for copying and raw karma data
+    let amateurData = [];
+    let proData = [];
+    let karmaDataMap = new Map(); // Store raw karma data by user ID
+    let currentCopyType = 'total'; // Default copy type
+
+    function switchTab(tabName) {
+      // Update button states
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Update content visibility
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+
+      // Hide export table when switching tabs
+      document.getElementById('export-table').classList.remove('show');
+    }
+
+    function setCopyType(type) {
+      currentCopyType = type;
+      document.querySelectorAll('.copy-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelectorAll(`[data-type="${type}"]`).forEach(btn => {
+        btn.classList.add('active');
+      });
+    }
+
+    function copyTopN(bracket) {
+      const data = bracket === 'amateur' ? amateurData : proData;
+      
+      if (data.length === 0) {
+        return;
+      }
+
+      // Sort data based on current copy type
+      let sortedData = [...data];
+      let valueLabel = '';
+      
+      switch (currentCopyType) {
+        case 'today':
+          sortedData.sort((a, b) => b.karmaDelta - a.karmaDelta);
+          valueLabel = 'Today\'s Score';
+          break;
+        case 'rank':
+          // Sort by rank (lower is better, but handle missing ranks)
+          sortedData.sort((a, b) => {
+            const rankA = a.karmaDayRank || Infinity;
+            const rankB = b.karmaDayRank || Infinity;
+            return rankA - rankB;
+          });
+          valueLabel = 'Today\'s Rank';
+          break;
+        case 'total':
+        default:
+          sortedData.sort((a, b) => b.karma - a.karma);
+          valueLabel = 'Total Score';
+          break;
+      }
+
+      // Prompt user for number of players to copy
+      const maxPlayers = sortedData.length;
+      const defaultCount = Math.min(5, maxPlayers);
+      const userInput = prompt(`How many top players would you like to copy? (1-${maxPlayers})`, defaultCount);
+      
+      if (userInput === null) {
+        return; // User cancelled
+      }
+
+      const count = parseInt(userInput);
+      
+      if (isNaN(count) || count < 1 || count > maxPlayers) {
+        alert(`Please enter a valid number between 1 and ${maxPlayers}`);
+        return;
+      }
+
+      const topN = sortedData.slice(0, count);
+      const bracketName = bracket === 'amateur' ? 'amateurs' : 'pros';
+      let output = `Today's scores are in! (${bracketName})\n-\nTop ${count} ${valueLabel}${count === 1 ? '' : 's'}:\n`;
+      
+      topN.forEach((player, index) => {
+        let value;
+        switch (currentCopyType) {
+          case 'today':
+            value = Math.round(player.karmaDelta).toLocaleString();
+            break;
+          case 'rank':
+            value = player.karmaDayRank ? `#${player.karmaDayRank}` : 'N/A';
+            break;
+          case 'total':
+          default:
+            value = Math.round(player.karma).toLocaleString();
+            break;
+        }
+        output += `${index + 1}. @${player['user @']} - ${value}\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(output.trim()).then(() => {
+        // Show feedback
+        const feedback = document.getElementById(`${bracket}-feedback`);
+        feedback.textContent = `Copied top ${count} ${valueLabel.toLowerCase()} to clipboard!`;
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+          feedback.textContent = 'Copied to clipboard!';
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = output.trim();
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const feedback = document.getElementById(`${bracket}-feedback`);
+        feedback.textContent = `Copied top ${count} ${valueLabel.toLowerCase()} to clipboard!`;
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+          feedback.textContent = 'Copied to clipboard!';
+        }, 2000);
+      });
+    }
+
+    function copyExportTable() {
+      // Combine both amateur and pro data
+      const allData = [...amateurData, ...proData];
+      
+      if (allData.length === 0) {
+        alert('No data available to copy');
+        return;
+      }
+
+      // Sort by username alphabetically
+      const sortedData = allData.sort((a, b) => {
+        const usernameA = a['user @'].toLowerCase();
+        const usernameB = b['user @'].toLowerCase();
+        return usernameA.localeCompare(usernameB);
+      });
+
+      // Create tab-separated values format for easy pasting into spreadsheets
+      let output = 'Username\tUser ID\tSeed\tDay 1\tDay 1+2\tDay Rank\n';
+      
+      sortedData.forEach(player => {
+        const userId = player['user id'];
+        const username = player['user @'];
+        const seed = player.seed;
+        
+        // Get raw karma data
+        const karmaData = karmaDataMap.get(userId);
+        if (!karmaData) return;
+        
+        const day1 = Math.round(karmaData.karmaDelta);
+        const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
+        const dayRank = karmaData.karmaDayRank || 'N/A';
+        
+        output += `${username}\t${userId}\t${seed}\t${day1}\t${day1Plus2}\t${dayRank}\n`;
+      });
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(output.trim()).then(() => {
+        // Show feedback
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = output.trim();
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const feedback = document.getElementById('export-feedback');
+        feedback.classList.add('show');
+        setTimeout(() => {
+          feedback.classList.remove('show');
+        }, 2000);
+      });
+    }
+
+    function exportScoresTable() {
+      // Combine both amateur and pro data
+      const allData = [...amateurData, ...proData];
+      
+      if (allData.length === 0) {
+        alert('No data available to export');
+        return;
+      }
+
+      // Sort by username alphabetically for export
+      const sortedData = allData.sort((a, b) => {
+        const usernameA = a['user @'].toLowerCase();
+        const usernameB = b['user @'].toLowerCase();
+        return usernameA.localeCompare(usernameB);
+      });
+
+      const tableBody = document.getElementById('export-table-body');
+      const exportTable = document.getElementById('export-table');
+      
+      // Clear existing rows
+      tableBody.innerHTML = '';
+      
+      // Populate table
+      sortedData.forEach(player => {
+        const userId = player['user id'];
+        const username = player['user @'];
+        const seed = player.seed;
+        
+        // Get raw karma data
+        const karmaData = karmaDataMap.get(userId);
+        if (!karmaData) return;
+        
+        const day1 = Math.round(karmaData.karmaDelta);
+        const day1Plus2 = Math.round(karmaData.karmaDelta + karmaData.karmaYesterdayDelta);
+        const dayRank = karmaData.karmaDayRank || 'N/A';
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${username}</td>
+          <td>${userId}</td>
+          <td>${seed}</td>
+          <td>${day1}</td>
+          <td>${day1Plus2}</td>
+          <td>${dayRank}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+
+      // Show the table
+      exportTable.classList.add('show');
+      
+      // Scroll to table
+      exportTable.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Function to check if we should include yesterday's karma
+    function shouldIncludeYesterdayKarma() {
+      const now = new Date();
+      
+      // Convert to EST (UTC-5) or EDT (UTC-4)
+      // This is a simplified approach - for production you might want to use a proper timezone library
+      const estOffset = -5; // EST is UTC-5, but you may need to adjust for EDT (UTC-4) during daylight saving time
+      const estTime = new Date(now.getTime() + (estOffset * 60 * 60 * 1000));
+      
+      const day = estTime.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
+      const hour = estTime.getHours();
+      
+      // Include yesterday's karma if:
+      // - It's Friday (day 5) and it's 7 AM or later, until Saturday 7 AM
+      // - It's Saturday (day 6) before 7 AM
+      // - It's Sunday (day 0) and it's 7 AM or later, until Monday 7 AM
+      // - It's Monday (day 1) before 7 AM
+      
+      if (day === 5 && hour >= 7) return true; // Friday 7 AM onwards
+      if (day === 6 && hour < 7) return true;  // Saturday before 7 AM
+      if (day === 0 && hour >= 7) return true; // Sunday 7 AM onwards
+      if (day === 1 && hour < 7) return true;  // Monday before 7 AM
+      
+      return false;
+    }
+
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      return lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = values[i]);
+        return obj;
+      });
+    }
+
+    function createPlayerRow(user, karma, rank) {
+      const shouldIncludeYesterday = shouldIncludeYesterdayKarma();
+      const karmaData = karmaDataMap.get(user['user id']);
+      
+      const div = document.createElement('div');
+      div.className = 'player-card';
+      
+      let karmaDisplay = '';
+      if (shouldIncludeYesterday && karmaData) {
+        // During Friday 7AM-Saturday 7AM and Sunday 7AM-Monday 7AM periods
+        // Show the combined karma (delta + yesterday) as main value
+        karmaDisplay = `
+          <div class="karma-details">
+            <span class="karma-value">${Math.round(karma)}</span>
+            <span class="karma-delta">Today: ${Math.round(karmaData.karmaDelta)}</span>
+            ${karmaData.karmaDayRank ? `<span class="karma-rank">Rank #${karmaData.karmaDayRank}</span>` : ''}
+          </div>
+        `;
+      } else {
+        // Show only today's delta during regular periods
+        karmaDisplay = `
+          <div class="karma-details">
+            <span class="karma-value">${karmaData ? Math.round(karmaData.karmaDelta) : Math.round(karma)}</span>
+            ${karmaData && karmaData.karmaDayRank ? `<span class="karma-rank">Rank #${karmaData.karmaDayRank}</span>` : ''}
+          </div>
+        `;
+      }
+      
+      div.innerHTML = `
+        <div class="player-info">
+          <span class="player-rank">#${rank}</span>
+          <span class="player-name">@${user['user @']}</span>
+        </div>
+        ${karmaDisplay}
+      `;
+      return div;
+    }
+
+    async function fetchKarma(userId) {
+      try {
+        const bust = `&_=${Date.now()}`;
+        const res = await fetch(`${WORKER_URL}?userId=${encodeURIComponent(userId)}${bust}`);
+        const json = await res.json();
+        const delta = parseFloat(json?.stats?.karmaDelta || 0);
+        const yesterday = parseFloat(json?.stats?.karmaYesterdayDelta || 0);
+        const dayRank = parseInt(json?.stats?.karmaDayRank) || null;
+        
+        // Store the raw data for export
+        karmaDataMap.set(userId, {
+          karmaDelta: delta,
+          karmaYesterdayDelta: yesterday,
+          karmaDayRank: dayRank
+        });
+        
+        // Use the new logic to determine if yesterday's karma should be included
+        return shouldIncludeYesterdayKarma() ? delta + yesterday : delta;
+      } catch {
+        return 0;
+      }
+    }
+
+    async function limitedMap(array, limit, asyncFn, onProgress) {
+      const results = [];
+      let index = 0;
+      const executing = new Set();
+
+      for (const item of array) {
+        const p = asyncFn(item).then(result => {
+          results.push(result);
+          if (onProgress) onProgress(++index, array.length);
+        });
+        executing.add(p);
+        p.finally(() => executing.delete(p));
+        if (executing.size >= limit) await Promise.race(executing);
+      }
+
+      await Promise.all(executing);
+      return results;
+    }
+
+    function calculateMedian(values) {
+      if (!values.length) return 0;
+      const sorted = [...values].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0
+        ? sorted[mid]
+        : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    async function loadLeaderboard() {
+      try {
+        const response = await axios.get(CSV_URL);
+        const users = parseCSV(response.data).filter(p => p.status?.toLowerCase() === 'active');
+
+        const updateProgress = (loaded, total) => {
+          loadingEl.textContent = `Loading ${loaded} of ${total} players...`;
+        };
+
+        const enrichedUsers = await limitedMap(
+          users,
+          10,
+          async (user) => {
+            const karma = await fetchKarma(user['user id']);
+            const karmaData = karmaDataMap.get(user['user id']);
+            return { 
+              ...user, 
+              karma,
+              karmaDelta: karmaData?.karmaDelta || 0,
+              karmaDayRank: karmaData?.karmaDayRank || null
+            };
+          },
+          updateProgress
+        );
+
+        const amateur = [], pro = [];
+
+        for (const user of enrichedUsers) {
+          const seed = user.seed?.toLowerCase();
+          if (seed === 'amatuer') {
+            amateur.push(user);
+          } else if (seed === 'pro') {
+            pro.push(user);
+          }
+        }
+
+        amateur.sort((a, b) => b.karma - a.karma);
+        pro.sort((a, b) => b.karma - a.karma);
+
+        // Store sorted data for copying
+        amateurData = amateur;
+        proData = pro;
+
+        const amateurList = document.getElementById('amateur-list');
+        const proList = document.getElementById('pro-list');
+
+        // Clear existing content
+        amateurList.innerHTML = '';
+        proList.innerHTML = '';
+
+        // Populate amateur bracket
+        if (amateur.length > 0) {
+          amateur.forEach((user, index) => 
+            amateurList.appendChild(createPlayerRow(user, user.karma, index + 1))
+          );
+          document.getElementById('amateur-median').textContent =
+            `Median: ${Math.round(calculateMedian(amateur.map(u => u.karma)))}`;
+        } else {
+          amateurList.innerHTML = '<div class="empty-state">No amateur players found</div>';
+          document.getElementById('amateur-median').textContent = 'Median: 0';
+        }
+
+        // Populate pro bracket
+        if (pro.length > 0) {
+          pro.forEach((user, index) => 
+            proList.appendChild(createPlayerRow(user, user.karma, index + 1))
+          );
+          document.getElementById('pro-median').textContent =
+            `Median: ${Math.round(calculateMedian(pro.map(u => u.karma)))}`;
+        } else {
+          proList.innerHTML = '<div class="empty-state">No pro players found</div>';
+          document.getElementById('pro-median').textContent = 'Median: 0';
+        }
+
+        loadingEl.textContent = 'Live scores updated';
+        setTimeout(() => {
+          loadingEl.style.display = 'none';
+        }, 2000);
+
+      } catch (e) {
+        console.error(e);
+        loadingEl.textContent = 'Failed to load leaderboard';
+      }
+    }
+
+    loadLeaderboard();
+  </script>
+</body>
+</html>
