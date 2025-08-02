@@ -459,6 +459,7 @@
         <div class="karma-details">
           <span class="karma-value">${Math.round(yesterdayKarma)}</span>
           <span class="karma-label">Yesterday</span>
+          ${user.yesterdayRank ? `<span class="karma-label">Rank #${user.yesterdayRank}</span>` : ''}
         </div>
       `;
       return div;
@@ -470,9 +471,10 @@
         const res = await fetch(`${WORKER_URL}?userId=${encodeURIComponent(userId)}${bust}`);
         const json = await res.json();
         const yesterday = parseFloat(json?.stats?.karmaYesterdayDelta || 0);
-        return yesterday;
+        const yesterdayRank = parseInt(json?.stats?.karmaYesterdayRank) || null;
+        return { karma: yesterday, rank: yesterdayRank };
       } catch {
-        return 0;
+        return { karma: 0, rank: null };
       }
     }
 
@@ -517,10 +519,11 @@
           users,
           10,
           async (user) => {
-            const yesterdayKarma = await fetchYesterdayKarma(user['user id']);
+            const yesterdayData = await fetchYesterdayKarma(user['user id']);
             return { 
               ...user, 
-              yesterdayKarma
+              yesterdayKarma: yesterdayData.karma,
+              yesterdayRank: yesterdayData.rank
             };
           },
           updateProgress
