@@ -756,16 +756,17 @@
       const day = estTime.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
       const hour = estTime.getHours();
       
-    // Include yesterday's karma if:
-// - It's Saturday (day 6) and it's 7 AM or later, until Sunday 7 AM
-// - It's Sunday (day 0) before 7 AM
-// - It's Monday (day 1) and it's 7 AM or later, until Tuesday 7 AM
-// - It's Tuesday (day 2) before 7 AM
-
-if (day === 6 && hour >= 7) return true; // Saturday 7 AM onwards
-if (day === 0 && hour < 7) return true;  // Sunday before 7 AM
-if (day === 1 && hour >= 7) return true; // Monday 7 AM onwards
-if (day === 2 && hour < 7) return true;  // Tuesday before 7 AM
+      // Include yesterday's karma if:
+      // - It's Saturday (day 6) and it's 7 AM or later, until Sunday 7 AM
+      // - It's Sunday (day 0) before 7 AM
+      // - It's Monday (day 1) and it's 7 AM or later, until Tuesday 7 AM
+      // - It's Tuesday (day 2) before 7 AM
+      
+      if (day === 6 && hour >= 7) return true; // Saturday 7 AM onwards
+      if (day === 0 && hour < 7) return true;  // Sunday before 7 AM
+      if (day === 1 && hour >= 7) return true; // Monday 7 AM onwards
+      if (day === 2 && hour < 7) return true;  // Tuesday before 7 AM
+      
       return false;
     }
 
@@ -789,7 +790,7 @@ if (day === 2 && hour < 7) return true;  // Tuesday before 7 AM
       
       let karmaDisplay = '';
       if (shouldIncludeYesterday && karmaData) {
-        // During Friday 7AM-Saturday 7AM and Sunday 7AM-Monday 7AM periods
+        // During Saturday 7AM-Sunday 7AM and Monday 7AM-Tuesday 7AM periods
         // Show the combined karma (delta + yesterday) as main value
         karmaDisplay = `
           <div class="karma-details">
